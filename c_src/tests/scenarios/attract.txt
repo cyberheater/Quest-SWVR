@@ -1,0 +1,4 @@
+# Attract mode: nothing touched.  Long enough to go round the banner, the
+# flight instructions, the scoring page and the high score table.
+#
+# run with:  --frames 1500

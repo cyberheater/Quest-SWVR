@@ -1,0 +1,22 @@
+{
+ "rev": 2,
+ "script": "tests/scenarios/coin_start.txt",
+ "passes": 400,
+ "mainline_passes": 400,
+ "selftest_passes": 0,
+ "cycles": 36053621,
+ "sound_cycles": 36053621,
+ "irqs": 5868,
+ "watchdog_cycles": 196608,
+ "watchdog_bites": 0,
+ "vg_runs": 783,
+ "matrix_runs": 13718,
+ "pcs_main": 2817,
+ "pcs_sound": 527,
+ "state_crc": "3585E570",
+ "main_write_crc": "3F5A773A",
+ "sound_write_crc": "AA7915CC",
+ "vector_crc": "6384687D",
+ "result": "PASS",
+ "captures": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384]
+}

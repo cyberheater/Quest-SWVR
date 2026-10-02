@@ -1,0 +1,112 @@
+# bank address routine module instructions executed compared-as  [instructions not executed]
+#   call   = its own call checks, all equal
+#   region = only inside a whole pass, a RESET region or the interrupt (it does not return by RTS)
+#   -      = no scenario reached it
+0 73B0 AUDRY      SNDAUD      2    2 call   
+0 73B7 AUDRD      SNDAUD      2    2 call   
+0 73BE AUDXL      SNDAUD      2    2 call   
+0 73C5 AUDPB      SNDAUD      2    2 call   
+0 73CB AUDPBZ     SNDAUD      2    2 call   
+0 73D1 AUDSH      SNDAUD      2    2 call   
+0 73D7 AUDPF      SNDAUD      2    2 call   
+0 73DD AUDTL      SNDAUD      2    2 call   
+0 73E3 AUDTC      SNDAUD      2    2 call   
+0 73E9 AUDTCZ     SNDAUD      2    2 call   
+0 73EF AUDSX      SNDAUD      2    2 call   
+0 73F5 AUDDF      SNDAUD      2    2 call   
+0 73FB AUDPS      SNDAUD      2    2 call   
+0 7401 AUDCR      SNDAUD      2    2 call   
+0 7407 AUDRC      SNDAUD      2    2 call   
+0 740D AUDDR      SNDAUD      2    2 call   
+0 7413 AUDSS      SNDAUD      2    2 call   
+0 7419 AUDPH      SNDAUD      2    2 call   
+0 7420 AUDRS      SNDAUD      2    2 call   
+0 7427 AUDTH      SNDAUD      2    2 call   
+0 742E AUDYEA     SNDAUD      2    2 call   
+0 7435 AUDNAY     SNDAUD      2    2 call   
+0 743C AUDTST     SNDAUD      2    2 call   
+0 7443 AUDNEW     SNDAUD     18   18 call   
+0 746A AUDDO      SNDAUD     32   32 call   
+0 751B PMSF2      SNDPM      13   13 call   
+0 753C PMBEN      SNDPM      13   13 call   
+0 755D PMCNT      SNDPM      13   13 call   
+0 757E PMEND      SNDPM      13   13 call   
+0 759F PMREB      SNDPM      13   13 call   
+0 75C0 PMRRP      SNDPM      13   13 call   
+0 75E1 PMTH5      SNDPM      13   13 call   
+0 7602 PM4TH      SNDPM      13   13 call   
+0 7623 PMTHB      SNDPM      13   13 call   
+0 7644 PMDES      SNDPM      13   13 call   
+0 7665 PMDAR      SNDPM      13   13 call   
+0 7686 PMTST      SNDPM      13   13 call   
+0 76A7 ISND       SNDPM      20   20 call   
+0 76DC RCS        SNDPM      20    0 -      76DC 76DE 76E1 76E4 76E6 76E8 76EA 76ED 76EF 76F2 76F3 76F5 76F7 76F9 76FB 76FD 76FF 7701 7703 7705
+0 7706 PKCUT1     SNDPM       2    2 call   
+0 770A PKCUT2     SNDPM       2    2 call   
+0 770E PKCUT3     SNDPM       2    2 call   
+0 7712 PKCUT4     SNDPM       2    2 call   
+0 7716 PKCUT5     SNDPM       2    2 call   
+0 771A PKCUT6     SNDPM       2    2 call   
+0 771E PKCUT7     SNDPM       2    2 call   
+0 7722 PKCUT8     SNDPM       2    2 call   
+0 7726 POKVI      SNDPM       2    2 call   
+0 772B POKVIY     SNDPM      31   28 call   7763 7765 7767
+0 776B NWTUNE     SNDPM       9    9 call   
+0 777C PKDR       SNDPM      21   21 call   
+0 77A3 POKOUT     SNDPM      14   14 call   
+0 77C1 POKNL      SNDPM      50   45 call   77D4 77D5 7819 781B 781D
+0 7826 POKSN      SNDPM      39   34 call   782C 782E 7830 785B 785D
+0 786D PKNON      SNDPM       2    2 call   
+0 7871 PKNC       SNDPM      22   18 call   7881 7892 7894 7896
+0 789A PKFUN      SNDPM       7    7 call   
+0 78CE PKDTZ      SNDPM       7    7 call   
+0 78DC PKFRQE     SNDPM       7    7 call   
+0 78EA PKCRAT     SNDPM       1    1 call   
+0 78EC PKARAT     SNDPM       3    3 call   
+0 78F2 PKCAMP     SNDPM       1    1 call   
+0 78F4 PKAAMP     SNDPM       2    2 call   
+0 78F9 PKCKEY     SNDPM       1    1 call   
+0 78FB PKAKEY     SNDPM       2    2 call   
+0 7900 PKCON      SNDPM       2    2 call   
+0 7905 PKPKC      SNDPM       2    0 -      7905 7908
+0 790B PKSYN      SNDPM       2    2 call   
+0 7910 PKCPH      SNDPM       9    9 call   
+0 7923 PKSL       SNDPM       4    4 call   
+0 792E PKEL       SNDPM       5    5 call   
+0 793D PKGOSB     SNDPM       6    6 call   
+0 794B PKRET      SNDPM       3    3 call   
+0 7B65 SPKRED     SNDSPK      2    2 call   
+0 7B6D SPKR2T     SNDSPK      2    2 call   
+0 7B76 SPKTHI     SNDSPK      2    2 call   
+0 7B7E SPKIMO     SNDSPK      2    2 call   
+0 7B88 SPKUSE     SNDSPK      2    2 call   
+0 7B90 SPKSTR     SNDSPK      2    2 call   
+0 7B9A SPKYAU     SNDSPK      2    2 call   
+0 7BA3 SPKREM     SNDSPK      2    2 call   
+0 7BAB SPKALW     SNDSPK      2    2 call   
+0 7BB3 SPKFOR     SNDSPK      2    2 call   
+0 7BBA SPKFOA     SNDSPK      2    2 call   
+0 7BC2 SPKHAV     SNDSPK      2    2 call   
+0 7BCB SPKSTA     SNDSPK      2    2 call   
+0 7BD4 SPKR2N     SNDSPK      2    2 call   
+0 7BDB SPKHIT     SNDSPK      2    2 call   
+0 7BE3 SPKLOS     SNDSPK      2    2 call   
+0 7BF1 SPKSHK     SNDSPK      2    2 call   
+0 7BF8 SPKTRU     SNDSPK      2    2 call   
+0 7BFF SPKLET     SNDSPK      2    2 call   
+0 7C06 SPKSIZ     SNDSPK      2    2 call   
+0 7C0D SPKELE     SNDSPK      2    2 call   
+0 7C14 SPKGRE     SNDSPK      2    2 call   
+0 7C1B SPKI       SNDSPK      1    1 call   
+0 7C1E SPKNEW     SNDSPK     11   11 call   
+0 7C31 SPITE      SNDSPK      8    8 call   
+0 7C40 SPKSKP     SNDSPK      3    3 call   
+0 7C45 SPKRES     SNDSPK      4    4 call   
+0 7C4D SPKWRM     SNDSPK      9    9 call   
+0 7C5E SPKIRQ     SNDSPK    116  116 call   
+0 7D44 RESET      SNDAUX      1    1 region 
+0 7D47 MAIN       SNDAUX     65   65 region 
+0 7DD3 DOCMD      SNDAUX     16   16 call   
+0 7DF3 IRQ        SNDAUX     26   26 region 
+0 7E27 FIRQ       SNDAUX     62   58 region 7E96 7E98 7E9A 7E9C
+0 7ED1 TEST       SNDAUX     61    0 -      7ED1 7ED3 7ED6 7ED8 7EDA 7EDD 7EE1 7EE3 7EE5 7EE7 7EE9 7EEC 7EEE 7EF0 7EF4 7EF6 7EF8 7EFA 7EFE 7F00 7F02 7F05 7F07 7F09 7F0B 7F0D 7F0F 7F11 7F13 7F15 7F18 7F1A 7F1C 7F1E 7F20 7F22 7F26 7F28 7F2A 7F2C 7F2D 7F2F 7F32 7F35 7F37 7F3A 7F3D 7F40 7F42 7F44 7F47 7F4A 7F4D 7F50 7F51 7F53 7F57 7F59 7F5B 7F5C 7F5E

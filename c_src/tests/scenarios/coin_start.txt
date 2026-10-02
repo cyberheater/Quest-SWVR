@@ -1,0 +1,12 @@
+# Coins and credits: a coin in each mech, then a start.
+#
+# run with:  --frames 400
+30 coinl 1
+32 coinl 0
+60 coinr 1
+62 coinr 0
+90 coinaux 1
+92 coinaux 0
+# "PULL TRIGGER TO START"
+130 firer 1
+132 firer 0

@@ -1,0 +1,5 @@
+sndaud.c
+sndaux.c
+sndpm.c
+sndspk.c
+registry.c

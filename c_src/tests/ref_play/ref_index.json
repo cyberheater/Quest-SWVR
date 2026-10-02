@@ -1,0 +1,22 @@
+{
+ "rev": 2,
+ "script": "tests/scenarios/play.txt",
+ "passes": 1400,
+ "mainline_passes": 1400,
+ "selftest_passes": 0,
+ "cycles": 129186264,
+ "sound_cycles": 129186264,
+ "irqs": 21026,
+ "watchdog_cycles": 196608,
+ "watchdog_bites": 0,
+ "vg_runs": 3157,
+ "matrix_runs": 299346,
+ "pcs_main": 6593,
+ "pcs_sound": 726,
+ "state_crc": "D08A534E",
+ "main_write_crc": "282B1B54",
+ "sound_write_crc": "28BF263F",
+ "vector_crc": "E7372E49",
+ "result": "PASS",
+ "captures": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800, 832, 864, 896, 928, 960, 992, 1024, 1056, 1088, 1120, 1152, 1184, 1216, 1248, 1280, 1312, 1344, 1376]
+}

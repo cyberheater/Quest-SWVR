@@ -1,0 +1,594 @@
+# bank address routine module instructions executed compared-as  [instructions not executed]
+#   call   = its own call checks, all equal
+#   region = only inside a whole pass, a RESET region or the interrupt (it does not return by RTS)
+#   -      = no scenario reached it
+0 6000 L6000      WSPROG      1    0 -      6000
+0 6005 WAITFRAME  WSMAIN     22   17 call   6025 6027 6029 602B 602D
+0 6036 MAIN       WSMAIN      7    7 region 
+0 60BE IFRAME     WSMAIN     37   35 call   60C6 60C8
+0 6112 IVGEN1     WSMAIN      6    6 call   
+0 611E DOWNVG     WSMAIN      7    7 call   
+0 612F VGDONE     WSMAIN     18   12 call   6143 6146 6149 614C 614F 6152
+0 615A IPARM      WSMAIN      3    3 call   
+0 6161 IPGEN      WSMAIN     35   32 call   6169 616C 616E
+0 61B5 IMATH      WSMAIN     19   19 call   
+0 61EC ISTAR      WSMAIN     16   16 call   
+0 620F ISTARG     WSMAIN     13   13 call   
+0 622D STRTCK     WSMAIN     35   28 call   6242 6244 6246 6248 6249 6252 6254
+0 6275 PHERES     WSMAIN     37   37 call   
+0 62D5 PHERES_100 WSMAIN     10    4 call   62DB 62DD 62DE 62DF 62E0 62E1
+0 62E4 PHIINS     WSMAIN     13   13 call   
+0 6306 PHEINS     WSMAIN     12   12 call   
+0 6326 PHISCR     WSMAIN     13   13 call   
+0 6348 PHESCR     WSMAIN     12   12 call   
+0 6368 VWPAGE     WSMAIN     42   42 call   
+0 63D5 VWCOIN     WSMAIN     57   48 call   63FA 63FC 63FE 6400 6402 6432 6440 644E 6451
+0 6459 PHIHIS     WSMAIN     15   15 call   
+0 6483 PHEHIS     WSMAIN     28   27 call   64A4
+0 64CD CPYRGHT    WSMAIN      9    9 call   
+0 64E2 PHISTS     WSMAIN      6    6 call   
+0 64F1 PHESTS     WSMAIN     15   15 call   
+0 6513 PHIOPT     WSMAIN     13   11 call   652A 652C
+0 6532 PHEOPT     WSMAIN     23   22 call   655A
+0 656C PHISDS     WSMAIN     16   16 call   
+0 659F TDTHZ      WSMAIN     94   93 call   6609
+0 6670 PHIENT     WSMAIN     23   23 call   
+0 66AC PHEENT     WSMAIN     34   30 call   66C8 66CB 66DD 66E0
+0 6708 PHIBNR     WSMAIN     32   21 call   673F 6742 6745 6748 674A 674C 674F 6752 6754 6755 6756
+0 676B ZMUSIC     WSMAIN     10   10 call   
+0 6787 PHISG1     WSMAIN      8    8 call   
+0 679A PHESG1     WSMAIN     33   33 call   
+0 67E5 PHISG2     WSMAIN      9    9 call   
+0 67FD PHESG2     WSMAIN      3    3 call   
+0 6802 PHIBGN     WSMAIN     18   16 call   681C 6828
+0 682F PHEBGN     WSMAIN      5    5 call   
+0 6838 PHISP1     WSMAIN     12   12 call   
+0 6859 PHESP1     WSMAIN     45   45 call   
+0 68D0 PHISP2     WSMAIN      2    2 call   
+0 68D5 PHESP2     WSMAIN     23   23 call   
+0 6912 PHIS0G     WSMAIN     14   14 call   
+0 6933 PHES0G     WSMAIN     12   12 call   
+0 6953 PHIS1G     WSMAIN      9    9 call   
+0 6968 PHES1G     WSMAIN     29   28 call   69A4
+0 69A9 PHIGD      WSMAIN     31   29 call   69B1 69BD
+0 69F4 PHEGD      WSMAIN     36   36 call   
+0 6A50 PHIS0B     WSMAIN     19   17 call   6A5E 6A6A
+0 6A7E PHES0B     WSMAIN      5    5 call   
+0 6A89 PHEG0B     WSMAIN     13   13 call   
+0 6AAB PHIG1B     WSMAIN      7    7 call   
+0 6ABF PHEG1B     WSMAIN     24   24 call   
+0 6AFF PHIB0B     WSMAIN     12   11 call   6B18
+0 6B1D PHEB0B     WSMAIN      3    3 call   
+0 6B22 PHIBS      WSMAIN      6    6 call   
+0 6B32 PHEBS      WSMAIN     69   69 call   
+0 6BDB PHINXT     WSMAIN      9    9 call   
+0 6BF1 PHENXT     WSMAIN     56   53 call   6C44 6C58 6C67
+0 6C76 PHIS0D     WSMAIN      6    6 call   
+0 6C84 PHES0D     WSMAIN     18   18 call   
+0 6CB6 PHIG0D     WSMAIN      6    6 call   
+0 6CC4 PHEG0D     WSMAIN     11   11 call   
+0 6CE1 PHIB0D     WSMAIN      6    6 call   
+0 6CEF PHEB0D     WSMAIN     11   11 call   
+0 6D0C PHIEGM     WSMAIN      4    4 call   
+0 6D15 PHEEGM     WSMAIN     15   15 call   
+0 6D3B PHIDX1     WSMAIN     10   10 call   
+0 6D54 PHEDX1     WSMAIN     19   18 call   6D7A
+0 6D80 PHIDX2     WSMAIN      3    3 call   
+0 6D86 PHEDX2     WSMAIN      7    7 call   
+0 6D95 PHIDX3     WSMAIN      2    2 call   
+0 6D98 PHEDX3     WSMAIN      6    6 call   
+0 6DA5 SMVBNR     WSMAIN      7    7 call   
+0 6DB6 SMVINS     WSMAIN      4    4 call   
+0 6DC0 SMVSCR     WSMAIN      4    4 call   
+0 6DCA SMVHIS     WSMAIN      4    4 call   
+0 6DD2 STWSP1     WSMAIN     16   16 call   
+0 6DFA STWSP2     WSMAIN     16   16 call   
+0 6E22 S1TWGD     WSMAIN     41   41 call   
+0 6E70 UNTWGD     WSMAIN      9    9 call   
+0 6E88 L6E88      WSMAIN     11   11 call   
+0 6EA1 S1TWBS     WSMAIN      1    1 call   
+0 6EA2 AIM        WSMAIN     17   17 call   
+0 6ECB AIMDTH     WSMAIN     18   18 call   
+0 6EF7 AIMA       WSMAIN     47   47 call   
+0 6F5F SMVSP1     WSMAIN      4    4 call   
+0 6F67 S1MVHP     WSMAIN      4    4 call   
+0 6F6F S1MVGD     WSMAIN     50   49 call   6F7B
+0 6FE0 SMVG0B     WSMAIN      6    4 call   6FE9 6FEC
+0 6FF1 SMVG1B     WSMAIN      5    5 call   
+0 7000 SMVG9B     WSMAIN     22   22 call   
+0 703B S1MVBS     WSMAIN     64   64 call   
+0 70BD S1RHPT     WSMAIN      6    6 call   
+0 70CC S1RHYW     WSMAIN      6    6 call   
+0 70DB VGTOSITE   WSMAIN     11   11 call   
+0 70F0 RHTRIG     WSMAIN     20   18 call   7103 710C
+0 7111 RHRSDU     WSMAIN     37   37 call   
+0 7160 RESIDU     WSMAIN     40   40 call   
+0 71C4 RESCNV     WSMAIN     13   13 call   
+0 72C7 VIEW       WSMAIN     29   29 call   
+0 7315 VEWS0D     WSMAIN     14   14 call   
+0 733C VEWHPA     WSMAIN     18   18 call   
+0 736F VEWHPB     WSMAIN     12   12 call   
+0 7390 VEWGD      WSMAIN     18   18 call   
+0 73C3 VEWG0D     WSMAIN     14   14 call   
+0 73EA VEWG0B     WSMAIN     15   15 call   
+0 7413 VEWG1B     WSMAIN     15   15 call   
+0 743C VEWBS      WSMAIN     62   60 call   747E 7480
+0 74D5 VEWB0D     WSMAIN     26   18 call   74E8 74EB 74ED 74EF 7505 7508 750A 750C
+0 7519 VEWNXT     WSMAIN     65   65 call   
+0 75B9 VEWDX1     WSMAIN     12   11 call   75C9
+0 75D9 VEWDX2     WSMAIN     19   19 call   
+0 760A VEWDX3     WSMAIN      7    7 call   
+0 761D VWMES      WSMAIN     47   47 call   
+0 768D VWMTWR     WSMAIN     28   28 call   
+0 76D3 VWMTWZ     WSMAIN     16   16 call   
+0 76FC L76FC      WSMAIN      5    3 call   7701 7703
+0 7707 VWMOVR     WSMAIN     13   13 call   
+0 7720 BINBCD     WSMAIN     18   18 call   
+0 774E BCDBIN     WSMAIN     10    0 -      774E 7751 7753 7755 7756 7759 775B 775E 7761 7764
+0 7765 VWDTHA     WSMAIN     29   29 call   
+0 77A4 VWDTHB     WSMAIN     23   23 call   
+0 77D4 DTHVW      WSMAIN     52   51 call   780B
+0 785B DTHVW_100  WSMAIN      4    4 call   
+0 7863 DTHVW_104  WSMAIN      4    4 call   
+0 786A SNVW       WSMAIN      9    9 call   
+0 7880 RTS1       WSMAIN      1    1 call   
+0 7881 S2VW       WSMAIN    163  162 call   796A
+0 7A48 NW1SHP     WSMAIN      6    6 call   
+0 7A5A OLD1SHP    WSMAIN     14   14 call   
+0 8341 NWBASE     WSBASE     39   39 call   
+0 83A4 GNBASE     WSBASE     18   18 call   
+0 83CE DOFAR      WSBASE     25   25 call   
+0 8408 NWFAR      WSBASE     18   18 call   
+0 8434 IWEDGE     WSBASE     44   44 call   
+0 8495 DOBASE     WSBASE     16   16 call   
+0 84C6 BSGUN      WSBASE     89   89 call   
+0 859B VWBASE     WSBASE     43   43 call   
+0 85F9 BSVBOT     WSBASE     60   60 call   
+0 86AE TBSBLZ     WSBASE     45   45 call   
+0 8735 TBSBFZ     WSBASE     59   57 call   873E 8772
+0 87CB BSVSDW     WSBASE     83   82 call   87ED
+0 889F BSVPORT    WSBASE     33   33 call   
+0 88F5 BSVEND     WSBASE     36   32 call   890B 890C 890D 890F
+0 8951 SNPTU      WSCPU       3    3 call   
+0 8959 SNPTD      WSCPU       3    3 call   
+0 8961 SNRLL      WSCPU       3    3 call   
+0 8969 SNRLR      WSCPU       3    3 call   
+0 8971 SNYWL      WSCPU       3    3 call   
+0 8979 SNYWR      WSCPU       3    3 call   
+0 8981 SNPOS      WSCPU       8    8 call   
+0 8993 SNNEG      WSCPU       9    9 call   
+0 89C8 SNRL       WSCPU       5    5 call   
+0 89D3 SNPT       WSCPU       5    5 call   
+0 89DE SNYW       WSCPU       5    5 call   
+0 89E9 SNMVF2     WSCPU      13   13 call   
+0 8A05 SNMVF      WSCPU      13   13 call   
+0 8A21 SNMVU      WSCPU      13   13 call   
+0 8A3D SNMVU2     WSCPU      13   13 call   
+0 8A59 SNMVD      WSCPU      16   16 call   
+0 8A7E SNMVD2     WSCPU      16   16 call   
+0 8AB6 DOAMOV     WSCPU      13   13 call   
+0 8ACF CPHTSA     WSCPU      70   69 call   8ADB
+0 8B57 XPSA       WSCPU       9    9 call   
+0 8B6D CPU        WSCPU      11   11 call   
+0 8B86 CPURET     WSCPU      46   46 call   
+0 8BE1 CPUAL      WSCPU     167  167 call   
+0 8D9D TGPROZ     WSCPU      31   31 call   
+0 8DE3 CPCHKL     WSCPU      26   21 call   8DEB 8DF2 8DFD 8E04 8E0F
+0 8E1C CPUGON     WSCPU       4    3 call   8E20
+0 8E23 NWCHOR     WSCPU       5    5 call   
+0 8E32 CHNXT      WSCPU       4    4 call   
+0 8E3A CHOPDO     WSCPU      10   10 call   
+0 8E51 CHCN_D     WSCPU       5    5 call   
+0 8E5C CHCN_E     WSCPU       6    6 call   
+0 8E78 CHERR      WSCPU       1    0 -      8E78
+0 8E79 CHIF_D     WSCPU      16   16 call   
+0 8E9B CHGO_D     WSCPU       4    4 call   
+0 8EA4 CHGS_D     WSCPU       6    6 call   
+0 8EB2 CHRT_D     WSCPU       3    3 call   
+0 8EBA CHTW_D     WSCPU      10   10 call   
+0 8ECE CHTW_E     WSCPU       3    3 call   
+0 8ED6 NWNSHP     WSCPU      44   44 call   
+0 8F34 NWASHP     WSCPU      34   34 call   
+0 8F7B ADASHP     WSCPU      81   78 call   8F9D 8FA8 8FC4
+0 953B ADCGAS     WSGAS      14   13 call   9551
+0 9558 DO1GAS     WSGAS      38   38 call   
+0 95A7 VWGAS      WSGAS      42   41 call   95FA
+0 9604 VWGONE     WSGAS       5    5 call   
+0 960F GSVALL     WSGAS      14   14 call   
+0 962A GSVNEW     WSGAS      58   58 call   
+0 96A1 GSVHIT     WSGAS      11   11 call   
+0 9722 SCRWAV     WSGAS      11   11 call   
+0 973A SCRTWR     WSGAS      25   22 call   976B 976E 9771
+0 9775 SCRSHLD    WSGAS      24   24 call   
+0 97AC GETFRP     WSGAS      10    8 call   97B3 97B6
+0 97C2 VWFRC      WSGAS      14   14 call   
+0 97E3 SCRFRC     WSGAS       2    2 call   
+0 97E8 SCRTIES    WSGAS       2    2 call   
+0 97ED SCRDARTH   WSGAS       2    2 call   
+0 97F2 SCRPNL     WSGAS       2    2 call   
+0 97F7 SCRBNK     WSGAS       2    2 call   
+0 97FC SCRTRT     WSGAS       2    2 call   
+0 9801 SCRSHT     WSGAS       2    2 call   
+0 9806 SCRPORT    WSGAS       2    2 call   
+0 980B SCRALL     WSGAS       2    0 -      980B 980E
+0 9810 ADUSCR     WSGAS      22   22 call   
+0 9874 BG1GLW     WSGLOW      6    6 call   
+0 987F KPGLOW     WSGLOW      4    4 call   
+0 9886 DO1QGLW    WSGLOW      5    5 call   
+0 9890 DO1GLW     WSGLOW      5    5 call   
+0 9898 DONGLW     WSGLOW     11   11 call   
+0 98B0 VWGLW      WSGLOW     12   12 call   
+0 A1CE IGRND      WSGRND     29   23 call   A1E4 A1E6 A1E9 A1EA A1EC A1FB
+0 A214 VWGRND     WSGRND     96   94 call   A24A A2E8
+0 A2F8 GDVIEW     WSGRND    119  119 call   
+0 A40A GRLZIN     WSGRND     33   33 call   
+0 A459 GRLZCL     WSGRND     95   94 call   A4C2
+0 A54B GDHTGB     WSGRND     28   28 call   
+0 A590 GDHTGT     WSGRND      1    0 -      A590
+0 A591 GDGUN      WSGRND     15   15 call   
+0 A5B3 GDTWRGN    WSGRND     36   36 call   
+0 A608 GDBSHGN    WSGRND     33   29 call   A62C A62E A630 A632
+0 A655 GDBNKGN    WSGRND     13   13 call   
+0 A68B FRAGUN     WSGUNS     27   27 call   
+0 A6E0 ZGNGD      WSGUNS      9    7 call   A6E7 A6EA
+0 A6F4 GNBSAVAIL  WSGUNS      8    8 call   
+0 A705 GNAVAIL    WSGUNS      1    1 call   
+0 A708 TSTAVAIL   WSGUNS      8    8 call   
+0 A728 FRBFGN     WSGUNS     69   69 call   
+0 A7B6 FRWFGN     WSGUNS      4    4 call   
+0 A7BF FRWLGN     WSGUNS      4    4 call   
+0 A7C8 FRWRGN     WSGUNS      4    4 call   
+0 A7D1 TOWRIN     WSGUNS     18   18 call   
+0 A7F7 FRPLGN     WSGUNS      9    9 call   
+0 A80B FRPRGN     WSGUNS      9    9 call   
+0 A81F PANLIN     WSGUNS     19   19 call   
+0 A849 MVGUN      WSGUNS     17   16 call   A860
+0 A86B MOVST      WSGUNS      6    6 call   
+0 A875 MOVAM      WSGUNS     23   19 call   A879 A87A A87C A87E
+0 A8A7 MOVLV      WSGUNS     26    0 -      A8A7 A8A9 A8AB A8AC A8AE A8B0 A8B2 A8B4 A8B6 A8B9 A8BB A8BD A8BF A8C1 A8C4 A8C6 A8C8 A8CA A8CC A8CF A8D1 A8D3 A8D5 A8D6 A8D7 A8D9
+0 A8DA MOVWF      WSGUNS      5    5 call   
+0 A8E6 MOVWL      WSGUNS      8    8 call   
+0 A8F9 MOVWR      WSGUNS      8    8 call   
+0 A90C SLEWX      WSGUNS     11   11 call   
+0 A920 SLWYL      WSGUNS      8    8 call   
+0 A933 SLWYR      WSGUNS      8    8 call   
+0 A946 MOVBL      WSGUNS     39   39 call   
+0 A9A3 MOVBR      WSGUNS     39   39 call   
+0 AA00 MOVBF      WSGUNS     15    0 -      AA00 AA02 AA05 AA07 AA09 AA0C AA0F AA11 AA13 AA16 AA1A AA1C AA1F AA21 AA23
+0 AA25 MOVBLC     WSGUNS     18    0 -      AA25 AA27 AA2A AA2C AA2E AA31 AA33 AA35 AA38 AA3B AA3D AA3F AA42 AA46 AA48 AA4B AA4D AA4F
+0 AA51 MOVBRC     WSGUNS     18    0 -      AA51 AA53 AA56 AA58 AA5A AA5D AA5F AA61 AA64 AA67 AA69 AA6B AA6E AA72 AA74 AA77 AA79 AA7B
+0 AA7D PANLMV     WSGUNS      5    4 call   AA83
+0 AA86 MOVPL      WSGUNS     20   19 call   AAA5
+0 AAB5 MOVPR      WSGUNS     20   19 call   AAD4
+0 AAE4 VWGUN      WSGUNS    154  154 call   
+0 AC52 GN1DRW     WSGUNS     50   50 call   
+0 ACB1 GLOWVW     WSGUNS     25   25 call   
+0 ACE0 GNAHIT     WSGUNS     30   30 call   
+0 AD20 GNHTSG     WSGUNS     14   14 call   
+0 AD3E FRPTGN     WSGUNS     19   19 call   
+0 AD6C MVPTGN     WSGUNS     31   30 call   AD9F
+0 ADAF VWPTGN     WSGUNS     15   15 call   
+0 ADD4 PTVW       WSGUNS     61   59 call   ADE7 ADE9
+0 AE60 TSTLAZ     WSLAZR     45   45 call   
+0 AEBD VWLAZ      WSLAZR     83   83 call   
+0 AF87 LAZVW      WSLAZR     94   94 call   
+0 B071 CLBLZ      WSLAZR     16   16 call   
+0 B095 CLBLZ_10   WSLAZR    181  175 call   B194 B198 B19C B215 B219 B21B
+0 B261 LZCPNW     WSLAZR     29   28 call   B265
+0 B29C LZHPN      WSLAZR     26   26 call   
+0 B2D2 CLGLZ      WSLAZR      9    9 call   
+0 B2E4 CLGA       WSLAZR      9    2 call   B2E8 B2EB B2ED B2EF B2F1 B2F3 B2F5
+0 B2F8 CLGB       WSLAZR      7    7 call   
+0 B307 CLGT       WSLAZR     16   15 call   B31F
+0 B32B CLSLZ      WSLAZR     10    9 call   B337
+0 B33E HTSG       WSLAZR      3    3 call   
+0 B345 HTSA       WSLAZR      3    3 call   
+0 B3E4 VWPANEL    WSPANL     39   39 call   
+0 B43F PNVLW      WSPANL    131  130 call   B55B
+0 B579 PNVRW      WSPANL    131  129 call   B642 B695
+0 B6B9 VWSITE     WSSITE      3    3 call   
+0 B6C0 VWSITC     WSSITE      3    3 call   
+0 B6C7 VWCURS     WSSITE      2    2 call   
+0 B6CC VWCURC     WSSITE      5    5 call   
+0 B6D7 VWPLAN     WSSITE     46   46 call   
+0 B739 BGAXPLD    WSXPLD      7    7 call   
+0 B76C BGAXP      WSXPLD    100   94 call   B812 B814 B816 B818 B81A B81B
+0 B83F BGAM       WSXPLD     10   10 call   
+0 B852 BGWGXP     WSXPLD      5    5 call   
+0 B85E BGTWXP     WSXPLD      4    4 call   
+0 B868 BGBKN      WSXPLD     84   84 call   
+0 B939 IXPLD      WSXPLD      7    7 call   
+0 B948 NXTFRE     WSXPLD     11   11 call   
+0 B95C MUNGE      WSXPLD     17   17 call   
+0 B98B DOXPLD     WSXPLD     24   23 call   B99A
+0 B9C0 MVBK1      WSXPLD     26   26 call   
+0 B9F9 MVTI1      WSXPLD     13   13 call   
+0 BA12 VWXPLD     WSXPLD     14   14 call   
+0 BA32 VWXPL2     WSXPLD     49   48 call   BA81
+0 BAA0 VWBK1      WSXPLD      2    2 call   
+0 BAA4 VWBK2      WSXPLD      2    2 call   
+0 BAA8 VWBK3      WSXPLD      2    2 call   
+0 BAAC VWTW1      WSXPLD      2    2 call   
+0 BAB0 VWTW2      WSXPLD      2    2 call   
+0 BAB4 VWTW3      WSXPLD      2    2 call   
+0 BAB8 VWTWN      WSXPLD      3    3 call   
+0 BABE VWBKN      WSXPLD      2    2 call   
+0 BAC2 VWTWN2     WSXPLD     37   37 call   
+0 BB16 VWTI3      WSXPLD      2    2 call   
+0 BB1A VWTI1      WSXPLD      2    2 call   
+0 BB1E VWTI2      WSXPLD      2    2 call   
+0 BB22 VWTIN      WSXPLD     12   10 call   BB2A BB2D
+0 BB7B BGXPLN     WSXPLD      5    5 call   
+0 BB85 VWXPLN     WSXPLD      4    4 call   
+0 BB8D XP_NUL     WSXPLD      1    1 call   
+0 BB98 XP_PH0     WSXPLD     14   14 call   
+0 BBBB XP_PH1     WSXPLD     50   50 call   
+0 BC1E XP_PH2     WSXPLD     50   50 call   
+0 BC85 XP_PH3     WSXPLD     19   19 call   
+0 BCAE DCIRCL     WSXPLD     12   12 call   
+0 BCC8 DRING      WSXPLD     15   15 call   
+0 BCE9 DOXMT      WSXMT       8    7 call   BCF3
+0 BCF9 AUDTST     WSXMT       2    0 -      BCF9 BCFB
+0 BCFE PMTST      WSXMT       2    0 -      BCFE BD00
+0 BD03 SPKALW     WSXMT       2    2 call   
+0 BD08 SPKELE     WSXMT       2    2 call   
+0 BD0D SPKFOA     WSXMT       2    2 call   
+0 BD12 SPKFOR     WSXMT       2    2 call   
+0 BD17 SPKGRE     WSXMT       2    2 call   
+0 BD1C SPKHAV     WSXMT       2    2 call   
+0 BD21 SPKHIT     WSXMT       2    2 call   
+0 BD26 SPKI       WSXMT       2    0 -      BD26 BD28
+0 BD2B SPKIMO     WSXMT       2    0 -      BD2B BD2D
+0 BD30 SPKLET     WSXMT       2    2 call   
+0 BD35 SPKLOS     WSXMT       2    2 call   
+0 BD3A SPKR2N     WSXMT       2    2 call   
+0 BD3F SPKR2T     WSXMT       2    2 call   
+0 BD44 SPKRED     WSXMT       2    2 call   
+0 BD49 SPKREM     WSXMT       2    2 call   
+0 BD4E SPKSHK     WSXMT       2    2 call   
+0 BD53 SPKSIZ     WSXMT       2    2 call   
+0 BD58 SPKSKP     WSXMT       2    2 call   
+0 BD5D SPKSTA     WSXMT       2    2 call   
+0 BD62 SPKSTR     WSXMT       2    2 call   
+0 BD67 SPKTHI     WSXMT       2    2 call   
+0 BD6C SPKTRU     WSXMT       2    2 call   
+0 BD71 SPKUSE     WSXMT       2    2 call   
+0 BD76 SPKYAU     WSXMT       2    2 call   
+0 BD7B PMBEN      WSXMT       2    2 call   
+0 BD80 PMCNT      WSXMT       2    2 call   
+0 BD85 PMDAR      WSXMT       2    2 call   
+0 BD8A PMDES      WSXMT       2    2 call   
+0 BD8F PMEND      WSXMT       2    2 call   
+0 BD94 PM4TH      WSXMT       2    2 call   
+0 BD99 PMREB      WSXMT       2    2 call   
+0 BD9E PMRRP      WSXMT       2    2 call   
+0 BDA3 PMSF2      WSXMT       2    2 call   
+0 BDA8 PMTH5      WSXMT       2    2 call   
+0 BDAD PMTHB      WSXMT       2    2 call   
+0 BDB2 AUDCR      WSXMT       2    2 call   
+0 BDB7 AUDDF      WSXMT       2    2 call   
+0 BDBC AUDDR      WSXMT       2    2 call   
+0 BDC1 AUDNAY     WSXMT       2    0 -      BDC1 BDC3
+0 BDC6 AUDPB      WSXMT       2    2 call   
+0 BDCB AUDPBZ     WSXMT       2    2 call   
+0 BDD0 AUDPF      WSXMT       2    2 call   
+0 BDD5 AUDPH      WSXMT       2    2 call   
+0 BDDA AUDPS      WSXMT       2    2 call   
+0 BDDF AUDRC      WSXMT       2    2 call   
+0 BDE4 AUDRD      WSXMT       2    2 call   
+0 BDE9 AUDRS      WSXMT       2    2 call   
+0 BDEE AUDRY      WSXMT       2    2 call   
+0 BDF3 AUDSH      WSXMT       2    2 call   
+0 BDF8 AUDSS      WSXMT       2    2 call   
+0 BDFD AUDSX      WSXMT       2    2 call   
+0 BE02 AUDTC      WSXMT       2    2 call   
+0 BE07 AUDTCZ     WSXMT       2    2 call   
+0 BE0C AUDTH      WSXMT       2    2 call   
+0 BE11 AUDTL      WSXMT       2    2 call   
+0 BE16 AUDXL      WSXMT       2    2 call   
+0 BE1B AUDYEA     WSXMT       2    0 -      BE1B BE1D
+0 BE20 EEACC      TCEROM    206  204 call   BF66 BF79
+0 C02F DIVIDE     TCEROM     39   37 call   C04A C04C
+0 C087 TMPMUL     TCEROM      1    1 call   
+0 C089 TMPML2     TCEROM     11   11 call   
+0 C09D EEACCU     TCEROM     44   44 call   
+0 C0FF EEACCT     TCEROM    116   82 call   C1AB C1AD C1AF C1B1 C1B2 C1B4 C1B6 C1B8 C1BB C1BD C1BE C1BF C1C0 C1C1 C1C4 C1C6 C1C8 C1CB C1CD C1CF C1D1 C1D2 C1D4 C1D5 C1D6 C1D7 C1D8 C1DA C1DC C1DF C1E1 C1E3 C1E5 C1E7
+0 C20C EEUTIM     TCEROM     24   20 call   C23D C240 C243 C246
+0 C24E EECPY      TCEROM     43   43 call   
+0 C2B3 EECKSM     TCEROM     10   10 call   
+0 C2C3 SUMMIT     TCEROM     35   35 call   
+0 C306 EEINIT     TCEROM     40   40 call   
+0 C369 EEINI0     TCEROM      1    1 call   
+0 C36C EEINIT_15  TCEROM      6    6 call   
+0 C37C EEINIT_20  TCEROM     17   17 call   
+0 C3A7 EEINI1     TCEROM      6    6 call   
+0 C3B7 EEINIT_40  TCEROM      6    6 call   
+0 C3C6 EEINIT_55  TCEROM     16   16 call   
+0 C3EE EEINI2     TCEROM     17   17 call   
+0 C413 CHKEE      TCEROM     24    3 call   C418 C41B C41E C421 C423 C425 C428 C42A C42D C430 C434 C436 C438 C43A C43C C43F C441 C444 C447 C44A C44C
+0 C450 EEOPT      TCEROM     63   63 call   
+0 C4EB EEOPT1     TCEROM     89   83 call   C4FF C502 C503 C505 C507 C50A
+0 C5A4 EEOPT3     TCEROM     38   38 call   
+0 C5F2 EETST      TCEROM     32   31 call   C63D
+0 C641 EECMP      TCEROM     12   12 call   
+0 C65B RESTOR     TCEROM     13    0 -      C65B C65D C65F C662 C664 C667 C66A C66D C66F C671 C674 C676 C679
+0 C67A EECLR      TCEROM      6    6 call   
+0 C688 EEWAIT     TCEROM      4    4 call   
+0 C690 EETSTR     TCEROM     17    8 call   C69D C6A0 C6A2 C6A5 C6A7 C6AA C6AD C6B0 C6B2
+0 C6B8 NOVRCL     TCEROM     11   11 call   
+0 C6D4 EETEMP     TCEROM      1    1 call   
+0 C6D7 EETMP2     TCEROM      1    1 call   
+0 C6D9 EETMP3     TCEROM     15   15 call   
+0 C6F4 TEMPEE     TCEROM      1    1 call   
+0 C6F7 TMPEE2     TCEROM      1    1 call   
+0 C6F9 TMPEE3     TCEROM     12   12 call   
+0 C70E TIME       TCEROM     23   22 call   C71C
+0 C7FD VWHSCR     TCHSCR    266  261 call   C87F C8B7 C8EF C9B1 C9B4
+0 CA8C UPDATE     TCHSCR     12    9 call   CA97 CA99 CA9B
+0 CAA5 UPDAT2     TCHSCR      7    7 call   
+0 CAB7 PUTHI      TCHSCR     27   27 call   
+0 CAF3 GETINT     TCHSCR     78   66 call   CB66 CB69 CB6B CB6D CB6F CB71 CB74 CB76 CB79 CB7B CB7D CB80
+0 CC18 SETINT     TCHSCR     12   12 call   
+0 CC38 CHKHIS     TCHSCR     16   16 call   
+0 CC5B DOINTS     TCHSCR     13   13 call   
+0 CCC0 INOBJ      WSROOT      5    5 call   
+0 CCCC ADBOBJ     WSROOT      5    5 call   
+0 CCD8 ADOBJ      WSROOT      5    5 call   
+0 CCE4 BJCNTR     WSROOT      5    5 call   
+0 CCF0 OBJCEN     WSROOT      5    5 call   
+0 CCFC BJLNV      WSROOT      5    5 call   
+0 CD08 BJLNB      WSROOT      5    5 call   
+0 CD14 OBJBPNT    WSROOT      5    5 call   
+0 CD20 OBJPNT     WSROOT      5    5 call   
+0 CD2C OBJDRW     WSROOT      5    5 call   
+0 CD38 BJGROT     WSROOT      5    5 call   
+0 CD44 BJFROT     WSROOT      5    5 call   
+0 CD50 BJGPNT     WSROOT      5    5 call   
+0 CD5C BJBCLP     WSROOT      5    5 call   
+0 CD68 BJGCLP     WSROOT      5    5 call   
+0 CD74 BJGDRW     WSROOT      5    5 call   
+0 CD80 VWSTAR     WSROOT      5    5 call   
+0 CD8C VWSTRG     WSROOT      5    5 call   
+0 CD98 ASRD8      WSMATH      4    0 -      CD98 CD99 CD9A CD9B
+0 CD9C ASRD6      WSMATH      2    2 call   
+0 CD9E ASRD5      WSMATH      2    2 call   
+0 CDA0 ASRD4      WSMATH      2    2 call   
+0 CDA2 ASRD3      WSMATH      7    7 call   
+0 CDA9 LSLD8      WSMATH      2    2 call   
+0 CDAB LSLD7      WSMATH      6    6 call   
+0 CDB1 LSLD4      WSMATH      4    4 call   
+0 CDB5 LSLD2      WSMATH      5    5 call   
+0 CDBA MGOWT      WSMATH      4    4 call   
+0 CDC3 UNITV      WSMATH     18   18 call   
+0 CDE7 TRANU1     WSMATH     13   13 call   
+0 CE0C IS1UV      WSMATH      5    5 call   
+0 CE18 IS2UV      WSMATH      5    5 call   
+0 CE24 S1RL       WSMATH      4    4 call   
+0 CE2F S1PT       WSMATH      4    4 call   
+0 CE3A S1YW       WSMATH      4    4 call   
+0 CE45 RND8       WSMATH      5    5 call   
+0 D660 SPLASH     TCSPLS     17   17 call   
+0 D68D URQUAD     TCSPLS      1    1 call   
+0 D690 URQ2       TCSPLS      8    8 call   
+0 D6A0 ULQUAD     TCSPLS      1    1 call   
+0 D6A3 ULQ2       TCSPLS     14   14 call   
+0 D6BC DLQUAD     TCSPLS      1    1 call   
+0 D6BF DLQ2       TCSPLS     23   23 call   
+0 D6E7 DRQUAD     TCSPLS      1    1 call   
+0 D6EA DRQ2       TCSPLS     17   17 call   
+0 D709 RNDVEC     TCSPLS      7    7 call   
+0 D776 COINS      WSCOIN     42   41 call   D790
+0 D7CE S_DETCT    WSCOIN     60   52 call   D7F8 D7FA D800 D802 D804 D806 D83F D841
+0 D84B S_MUL83    WSCOIN      4    3 call   D851
+0 D853 S_MUL85    WSCOIN      7    7 call   
+0 D860 S_DETNXT   WSCOIN     42   28 call   D87A D87C D87D D87F D881 D883 D885 D887 D889 D89D D89E D8A0 D8A2 D8A8
+0 D8AE S_EXT      WSCOIN     24   24 call   
+0 D8DF MESSON     TCMES      11   11 call   
+0 D8F7 MESSOFF    TCMES      15    0 -      D8F7 D8FA D8FC D8FE D901 D905 D907 D909 D90B D90D D910 D912 D914 D917 D919
+0 D91A ALLOFF     TCMES       4    4 call   
+0 D923 VWMESS     TCMES      12   12 call   
+0 D942 VWMES2     TCMES      11   11 call   
+0 D95E SPMON      TCMES       8    8 call   
+0 D971 SPMOFF     TCMES       9    9 call   
+0 D985 VWSPMS     TCMES      38   38 call   
+0 D9DC BGBNNR     TCMES      11   11 call   
+0 D9FA VWBNNR     TCMES     119  119 call   
+0 E764 VW8DIG     TCMES       6    6 call   
+0 E772 VW6DIG     TCMES      15   15 call   
+0 E790 VWBYTE     TCMES      15   15 call   
+0 E7AD VWNIBL     TCMES      13   13 call   
+0 E7C7 DOMESS     TCMES       6    6 call   
+0 E7D3 DOMES2     TCMES       5    5 call   
+0 E7DD MCOLR      TCMES       7    7 call   
+0 E7EA MOUT       TCMES      10   10 call   
+0 E7FC MOUT2      TCMES      11   11 call   
+0 E811 MOUTXT     TCMES       7    7 call   
+0 E821 MESOUT     TCMES      53   51 call   E840 E843
+0 EF54 INTDIS     WSINT       1    0 -      EF54
+0 EF56 IRQ        WSINT     214  203 region EF5D EF63 EF71 EF7E EF8A EFDE EFE1 EFE3 F038 F03B F03E
+0 F133 DEBNCE     WSINT      10   10 call   
+0 F146 DOPOTS     WSINT      31   29 call   F166 F174
+0 F18D RHCTRL     WSINT      27   24 call   F19C F1A2 F1B8
+0 F1C6 RHLIM      WSINT      29   23 call   F1EB F1ED F1EF F1F1 F1F3 F1F5
+0 F1FD RHPOS      WSINT      25   24 call   F213
+0 F22B GNSITE     WSINT      30   30 call   
+0 F261 RESET      WSINT      79   79 region 
+0 F36E TEST       TCTEST      8    7 region F37D
+0 F380 RAMTST     TCTEST    309  192 region F391 F393 F396 F399 F39B F3A9 F3AB F3AE F3B1 F3B3 F3EF F3F1 F3F4 F3F7 F3F9 F3FF F401 F404 F407 F409 F458 F45A F45D F460 F462 F476 F478 F47B F47E F480 F4A6 F4A8 F4AB F4AE F4B0 F4CE F4D0 F4D3 F4D6 F4D9 F4DB F4DD F4DF F4E2 F4E5 F4E8 F4EA F51D F539 F53B F53E F541 F5B1 F5B2 F5B3 F5B5 F5B7 F5B9 F5BC F5BE F5C0 F5C2 F5C3 F5C6 F5C7 F5C9 F5CB F5CE F5D0 F5D3 F5D4 F5D6 F5D7 F5DA F5DC F5DD F5E0 F5E3 F5E5 F5E7 F5E9 F5ED F5F0 F5F2 F5F3 F5F5 F5F7 F5F9 F5FB F5FE F601 F604 F606 F60A F60C F60E F610 F613 F615 F616 F618 F61A F61C F61E F621 F624 F627 F629 F62D F62F F631 F633 F636 F639 F63B F63F F641
+0 F65C TSTLP      TCTEST     81   65 region F676 F68F F6BA F6C1 F6D9 F6DB F6DD F6DE F6E0 F6E2 F6E4 F6E6 F6E8 F703 F705 F707
+0 F70D GETBAK     TCTEST      3    3 region 
+0 F714 GETBK2     TCTEST      4    4 region 
+0 F720 HANG       TCTEST      1    1 region 
+0 F74F TSUMYZ     TCTEST     22   18 region F767 F773 F775 F777
+0 F77F SSWTCH     TCTEST    100  100 region 
+0 F86C SWDISP     TCTEST     12   12 call   
+0 F884 SCHKR      TCTEST      3    3 region 
+0 F88C SHATCH     TCTEST      3    3 region 
+0 F894 SINTEN     TCTEST     10   10 region 
+0 F8AA SBIP       TCTEST     14   14 region 
+0 F8CC SSCAL      TCTEST     52   33 region F8D2 F8D5 F8D7 F8F5 F8F7 F8F9 F900 F902 F904 F905 F906 F908 F90A F90C F90F F911 F913 F915 F932
+0 F93F SRASTR     TCTEST     10   10 region 
+0 F958 SDIV       TCTEST     23   19 region F97F F981 F984 F987
+0 F994 LF994      TCTEST      2    2 region 
+0 F99B SDIVRT     TCTEST     70   14 region F99D F99F F9A1 F9A5 F9A7 F9A9 F9AC F9AE F9B1 F9B3 F9B5 F9B7 F9B9 F9BC F9BE F9C0 F9C3 F9C4 F9C6 F9C7 F9C9 F9CC F9CE F9D1 F9D3 F9D4 F9D6 F9D9 F9DB F9DD F9DF F9E2 F9E4 F9E7 F9EA F9EC F9EE F9F1 F9F3 F9F6 F9F9 F9FB F9FD FA00 FA02 FA05 FA08 FA0A FA0C FA0F FA11 FA14 FA17 FA2E FA30 FA33
+0 FA42 LFA42      TCTEST      5    5 region 
+0 FA4E SMULRT     TCTEST     63   12 region FA50 FA52 FA54 FA57 FA59 FA5B FA5D FA60 FA62 FA65 FA67 FA69 FA6B FA6E FA70 FA73 FA75 FA77 FA7A FA7B FA7C FA7E FA80 FA81 FA83 FA86 FA88 FA8B FA8D FA8E FA90 FA92 FA94 FA96 FA99 FA9B FA9D FAA0 FAA1 FAA5 FAA7 FAA9 FAAC FAAE FAB2 FAB4 FAB7 FAB9 FABC FABF FAD6
+0 FB09 TMULTZ     TCTEST      2    2 region 
+0 FB10 MT9RT1     TCTEST      4    3 region FB16
+0 FB1C LFB1C      TCTEST      2    2 region 
+0 FB23 MT9RT2     TCTEST      7    6 region FB2A
+0 FB38 DIVTST     TCTEST      8    8 region 
+0 FB73 TDIVZ      TCTEST      1    1 region 
+0 FB75 MTST1      TCTEST      5    5 region 
+0 FB82 MTST2      TCTEST      5    5 region 
+0 FB8F MTST3      TCTEST      5    5 region 
+0 FB9C MTST4      TCTEST      3    3 region 
+0 FBA3 MTST5      TCTEST      3    3 region 
+0 FBAA MTST6      TCTEST      8    8 region 
+0 FBBF MTST7      TCTEST      8    8 region 
+0 FBD4 MTST8      TCTEST     12   12 region 
+0 FBF6 MTST9      TCTEST      8    8 region 
+0 FC0D MTST92     TCTEST      6    6 region 
+0 FC1C MTST10     TCTEST     34   33 region FC5F
+0 FC72 MTST11     TCTEST     21   21 region 
+0 FCAC MTST12     TCTEST     16   16 region 
+0 FD07 TMULZ      TCTEST     50   50 region 
+0 FDBC TDNUMZ     TCTEST     11   10 region FDBF
+0 FDD7 D_AVGR     TCTEST     11    9 region FDDA FDEF
+0 FDF2 D_AVGI     TCTEST     30   30 region 
+0 FE4F TAVGIZ     TCTEST      4    4 region 
+0 FE58 D_MTRX_30  TCTEST     13   13 region 
+0 FE7C D_DVDR     TCTEST      6    6 region 
+0 FE87 D_DVDR_30  TCTEST     11   11 region 
+0 FEA7 D_SND      TCTEST     37   37 region 
+0 FEFF LEDFLSH    TCTEST      2    2 region 
+0 FF03 WAIT1      TCTEST     13   13 region 
+0 FF24 DIAGERR    TCTEST     19   19 region 
+1 6000 K6000      WSPROG      1    0 -      6000
+1 670D JINOBJ     WSOBJ      11   11 call   
+1 6724 JADBOBJ    WSOBJ       1    1 call   
+1 6726 JADOBJ     WSOBJ      30   29 call   673F
+1 6761 JBJCNTR    WSOBJ      14   14 call   
+1 6782 JBJLNV     WSOBJ      17   17 call   
+1 67AA JBJLNB     WSOBJ      17   17 call   
+1 67D2 JOBJBPNT   WSOBJ       1    1 call   
+1 67D4 JOBJPNT    WSOBJ      30   29 call   67E4
+1 6819 JOBJDRW    WSOBJ      40   34 call   6825 6830 6831 6832 6834 6836
+1 6864 JBJGROT    WSOBJ      38   38 call   
+1 68C7 JBJFROT    WSOBJ      39   39 call   
+1 692D JBJGPNT    WSOBJ      28   28 call   
+1 6978 JBJBCLP    WSOBJ      58   58 call   
+1 6A0C JBJGCLP    WSOBJ      58   56 call   6A94 6A97
+1 6AA0 JBJGDRW    WSOBJ       9    8 call   6AAE
+1 6C1C K6C1C      WSOBJ     101  101 call   
+1 6CFC K6CFC      WSOBJ     195  195 call   
+1 6EB1 K6EB1      WSOBJ     133  133 call   
+1 6FD9 K6FD9      WSOBJ     251  251 call   
+1 720B K720B      WSOBJ      91   91 call   
+1 72D5 K72D5      WSOBJ      73   73 call   
+1 7375 K7375      WSOBJ      99   99 call   
+1 7451 K7451      WSOBJ     199  199 call   
+1 7D9A JVWSTAR    WSSTAR    116  116 call   
+1 7EAF JVWSTRG    WSSTAR    102  102 call   
+1 7F9A STARNW     WSSTAR     31   31 call   
+1 7FDB STRNWG     WSSTAR     17   17 call   

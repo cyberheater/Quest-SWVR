@@ -1,0 +1,38 @@
+# Self test: power on with the test switch closed, let Atari's RAM, NOVRAM and
+# ROM tests run, then step through every test screen with the aux coin switch
+# (TSTLP debounces it over three loops), and leave by opening the test switch,
+# which hangs for the watchdog.  Passes are arrivals at TSTLP ($F65C, kind D)
+# until the reboot, then mainline passes.
+#
+# run with:  --diag-pc F65C --allow-watchdog --frames 420
+0 test 1
+
+# SDISP (RAM/ROM results) is the first screen.  Each press steps one screen:
+# SSWTCH, SDIV (divider and matrix tests), SHATCH, SCHKR, SINTEN, SBIP, SSCAL,
+# SRASTR, and round again to SSWTCH.
+20 coinaux 1
+26 coinaux 0
+46 coinaux 1
+52 coinaux 0
+# SDIV is up from here: let the divider and matrix tests run for a while
+100 coinaux 1
+106 coinaux 0
+126 coinaux 1
+132 coinaux 0
+# colour test: both fire switches change the colour
+140 firel 1
+146 firel 0
+152 coinaux 1
+158 coinaux 0
+178 coinaux 1
+184 coinaux 0
+204 coinaux 1
+210 coinaux 0
+# raster test: the thumb buttons change the brightness
+216 thumbl 1
+222 thumbl 0
+230 coinaux 1
+236 coinaux 0
+
+# open the test switch: HANG until the watchdog resets the board, then a normal boot
+260 test 0

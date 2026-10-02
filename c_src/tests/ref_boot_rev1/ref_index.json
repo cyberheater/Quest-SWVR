@@ -1,0 +1,22 @@
+{
+ "rev": 1,
+ "script": "",
+ "passes": 300,
+ "mainline_passes": 300,
+ "selftest_passes": 0,
+ "cycles": 33454700,
+ "sound_cycles": 33454704,
+ "irqs": 5445,
+ "watchdog_cycles": 196608,
+ "watchdog_bites": 0,
+ "vg_runs": 595,
+ "matrix_runs": 29700,
+ "pcs_main": 1890,
+ "pcs_sound": 290,
+ "state_crc": "6B1A2D56",
+ "main_write_crc": "43D81121",
+ "sound_write_crc": "14C22D16",
+ "vector_crc": "6EB377EC",
+ "result": "PASS",
+ "captures": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 32, 64, 96, 128, 160, 192, 224, 256, 288]
+}

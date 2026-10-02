@@ -1,0 +1,22 @@
+{
+ "rev": 2,
+ "script": "tests/scenarios/selftest.txt",
+ "passes": 420,
+ "mainline_passes": 160,
+ "selftest_passes": 260,
+ "cycles": 44479948,
+ "sound_cycles": 44479953,
+ "irqs": 7239,
+ "watchdog_cycles": 196608,
+ "watchdog_bites": 1,
+ "vg_runs": 837,
+ "matrix_runs": 31190,
+ "pcs_main": 2437,
+ "pcs_sound": 350,
+ "state_crc": "55B49A24",
+ "main_write_crc": "2F1211C1",
+ "sound_write_crc": "D9D39333",
+ "vector_crc": "B7492F47",
+ "result": "PASS",
+ "captures": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416]
+}

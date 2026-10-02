@@ -1,0 +1,43 @@
+# ROM images are not distributed.  Supply your own MAME starwars set and
+# regenerate everything with disasm/gen_from_roms.py (see disasm/README.md).
+roms/
+disasm/build/
+*.bin
+
+# Atari's source archive (github.com/historicalsource/star-wars) is not
+# distributed either; the listings recovered from it are.  A local copy here
+# lets the tools that read it run again.
+star-wars-main/
+
+# Everything recorded from the running ROM - the oracle's state dumps and
+# display-list dumps - is not distributed; c_src/tools/run_gates.py records
+# all of it again, byte for byte.  The schedules, logs, indexes and coverage
+# files under c_src/tests/ref_*/ are checked in.
+c_src/tests/avg_out/
+c_src/tests/_scratch/
+frame_*.ram
+frame_*.vram
+frame_*.nv
+frame_*.snd
+*.nv
+
+# Build output (the C port's exe and the emulator twin's are published; they
+# hold no ROM data - the images are read at run time)
+c_src/obj/
+emu_src/obj/
+*.exe
+!c_src/sw_win.exe
+!emu_src/sw_emu.exe
+*.log
+*.obj
+*.pdb
+*.ilk
+
+# Python
+__pycache__/
+*.pyc
+
+# Local working files, kept out of the published tree
+StarWarsTAG.asm
+docs/superpowers/
+.claude/
