@@ -29,6 +29,11 @@ which plays** — window, sound, the flight yoke on the mouse, no 6809 in it —
 and `emu_src/sw_emu.exe`, the real ROMs on 6809 cores behind the same window
 (see [Status](#status)).
 
+**[See every vector object in the game](https://tcottrill.github.io/Star-Wars-Full-Disassembly-and-C-Port/disasm/shapes_preview.html)**
+— `shapes_preview.html`, drawn from the ROM: the character set, the vector
+pictures, the 26 three-dimensional objects as wireframes you can turn, and
+the messages.
+
 ## Quick start
 
 Nothing here runs without a ROM set, and none is included.
@@ -50,7 +55,7 @@ Nothing here runs without a ROM set, and none is included.
 | where | what |
 |-------|------|
 | [`disasm/`](disasm/README.md) | the four listings, two defines files, the shape preview page, and the Python tools that generate and verify all of it from a ROM set — among them `macasm69.py`, an assembler for Atari's 6809 source dialect |
-| [`disasm/shapes_preview.html`](disasm/shapes_preview.html) | one self-contained page drawn from the ROM: the 45-character set, 279 vector pictures, the 26 three-dimensional objects as wireframes you can turn, and the 214 messages |
+| [`disasm/shapes_preview.html`](https://tcottrill.github.io/Star-Wars-Full-Disassembly-and-C-Port/disasm/shapes_preview.html) | one self-contained page drawn from the ROM: the 45-character set, 279 vector pictures, the 26 three-dimensional objects as wireframes you can turn, and the 214 messages |
 | [`disasm/_survey/starwars_inputs.md`](disasm/_survey/starwars_inputs.md) | the survey the work started from: ROM sets, Atari's link structure, the source dialect, the memory map |
 | [`c_src/`](c_src/README.md) | **the C port, playable** (`sw_win.exe`): the main program and the sound program as C — the translator, its output, the two hand-written routines — on models of the chips (the vector generator driven by its state PROM, the matrix processor by its microcode PROMs, 6532, POKEYs, speech chip), with the Windows backend. Also the oracle (the real ROMs on a 6809 core, with a scripted harness and its gates) and the verifier that runs every C routine against it. Builds with Visual Studio 2022 |
 | [`emu_src/`](emu_src/README.md) | **the emulator twin** (`sw_emu.exe`): the real ROMs on two 6809 cores behind the same window, sound and controls. A separate program with its own copy of every file; nothing is shared with `c_src` at build time |

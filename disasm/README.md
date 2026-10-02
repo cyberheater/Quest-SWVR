@@ -6,7 +6,7 @@ twice: against Atari's own link images, and by an independent read-back verifier
 The format follows the
 [Tempest disassembly](https://github.com/tcottrill/Tempest-Full-Disassembly-and-C-Port).
 
-[`shapes_preview.html`](shapes_preview.html) draws every vector object the
+[`shapes_preview.html`](https://tcottrill.github.io/Star-Wars-Full-Disassembly-and-C-Port/disasm/shapes_preview.html) draws every vector object the
 listings describe: the character set, the vector ROM pictures, the pictures the
 program copies into vector RAM, and the 3-D objects.
 
