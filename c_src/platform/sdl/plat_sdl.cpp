@@ -213,7 +213,9 @@ void plat_video_present(void)
     present_pending = 1;
     n_pictures++;
     if (dump_file) {
-        fprintf(dump_file, "P %lu %zu\n", n_pictures, shown.size());
+        sw_app_stats st;
+        sw_app_get_stats(&st);
+        fprintf(dump_file, "P %lu %zu %llu\n", n_pictures, shown.size(), (unsigned long long)st.cycles);
         for (auto &s : shown)
             fprintf(dump_file, "%g %g %g %g %06X %d\n", s.x0, s.y0, s.x1, s.y1, (unsigned)(s.rgb & 0xFFFFFF), s.in);
     }

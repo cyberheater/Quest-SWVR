@@ -17,6 +17,10 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# The 3-D tap (sw3d.h): records where every vector sits in the game's 3-D
+# space.  It only watches; off, the build is the plain port.
+option(SW_3D "Build the 3-D tap" ON)
+
 find_package(SDL2 REQUIRED)
 find_package(OpenGL REQUIRED)
 
@@ -37,6 +41,12 @@ add_executable(sw_sdl
     avg.c mathbox.c x2212.c riot6532.c c012294.c tms5220.cpp)
 target_include_directories(sw_sdl PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(sw_sdl PRIVATE sw_main_prog sw_snd_prog SDL2::SDL2 OpenGL::GL)
+if(SW_3D)
+    target_sources(sw_sdl PRIVATE sw3d.c)
+    target_compile_definitions(sw_main_prog PUBLIC SW_3D)
+    target_compile_definitions(sw_snd_prog PUBLIC SW_3D)
+    target_compile_definitions(sw_sdl PRIVATE SW_3D)
+endif()
 if(APPLE)
     target_compile_definitions(sw_sdl PRIVATE GL_SILENCE_DEPRECATION)
 endif()

@@ -24,6 +24,9 @@
 #include "platform/sw_platform.h"
 extern "C" {
 #include "c012294.h"
+#ifdef SW_3D
+#include "sw3d.h"
+#endif
 }
 
 #define CPU_HZ      1512000.0
@@ -127,6 +130,12 @@ static void vg_hook(int go)
     if (a->nvect == 0 || a->run_start == shown_run) return;
     shown_run = a->run_start;
     plat_video_begin();
+#ifdef SW_3D
+    static FILE *d3 = (FILE *)-1;
+    if (d3 == (FILE *)-1) { const char *e = getenv("SW_DUMP3D"); d3 = e ? fopen(e, "w") : nullptr; }
+    if (d3) fprintf(d3, "P %lu %u\n", st.pictures + 1, a->nvect);
+    const avg_point *pt_prev = nullptr;
+#endif
     float px = 125.0f, py = 140.0f;
     int lit = 0;
     for (uint32_t i = 0; i < a->nvect; i++) {
@@ -137,7 +146,19 @@ static void vg_hook(int go)
                          | ((p->color & 1) ? 0xFF0000u : 0);
             plat_video_line(px, py, x, y, rgb, p->z);
             lit++;
+#ifdef SW_3D
+            if (d3) {
+                const avg_point *s = pt_prev;
+                fprintf(d3, "%g %g %g %g %06X %d %04X %d %d %d %d %04X %d %d %d %d %04X\n", px, py, x, y,
+                        (unsigned)(rgb & 0xFFFFFF), p->z, p->src,
+                        s ? s->p3_valid : 0, s ? s->p3[0] : 0, s ? s->p3[1] : 0, s ? s->p3[2] : 0, s ? s->p3_ck : 0,
+                        p->p3_valid, p->p3[0], p->p3[1], p->p3[2], p->p3_ck);
+            }
+#endif
         }
+#ifdef SW_3D
+        pt_prev = p;
+#endif
         px = x; py = y;
     }
     plat_video_present();

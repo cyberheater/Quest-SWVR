@@ -30,6 +30,9 @@
 extern "C" {
 #include "sw.h"
 }
+#ifdef SW_3D
+#include "sw3d.h"
+#endif
 /* sw.h's register names are single letters: keep them out of this file */
 #undef A
 #undef B
@@ -180,6 +183,9 @@ extern "C" uint16_t hw_rd16(uint16_t a)
 extern "C" void hw_wr16(uint16_t a, uint16_t v)
 {
     main_sync();
+#ifdef SW_3D
+    if (a == 0x4704) sw3d_divide(v);            /* M_DVD: the 3-D tap watches every divide */
+#endif
     sw_hw_write(a, (uint8_t)(v >> 8));
     sw_hw_write((uint16_t)(a + 1), (uint8_t)v);
 }

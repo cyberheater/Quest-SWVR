@@ -3,6 +3,9 @@
  * for the main program, and with SW_SND_PROGRAM for the sound board's. */
 #include <string.h>
 #include "sw.h"
+#if defined(SW_3D) && !defined(SW_SND_PROGRAM)
+#include "sw3d.h"
+#endif
 
 sw_state g;
 
@@ -24,6 +27,9 @@ uint8_t rd8(uint16_t a)
 {
     a = ADDR(a);
     if (IS_HW(a)) return hw_rd8(a);
+#if defined(SW_3D) && !defined(SW_SND_PROGRAM)
+    if (a >= 0x4C00 && a < 0x6000) sw3d_read(a);
+#endif
     return ROM8(a);
 }
 
@@ -31,6 +37,9 @@ void wr8(uint16_t a, uint8_t v)
 {
     a = ADDR(a);
     if (IS_HW(a)) { hw_wr8(a, v); return; }
+#if defined(SW_3D) && !defined(SW_SND_PROGRAM)
+    if (a < 0x3000) sw3d_vram_write(a);
+#endif
     if (IS_RAM(a)) g.mem[a] = v;
     /* a write to ROM or to nothing does nothing */
 }

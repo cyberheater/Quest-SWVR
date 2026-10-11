@@ -25,11 +25,23 @@ typedef struct {
     int32_t x, y;        /* beam position after the instruction, 16.16 */
     uint8_t color;       /* 3 bits: 4 red, 2 green, 1 blue */
     uint8_t z;           /* 0 = beam off */
+    uint16_t src;        /* vector memory address of the instruction that drew it */
+#ifdef SW_3D
+    int16_t  p3[3];      /* sw3d.h: the 3-D point the beam went to, as tagged when drawn */
+    uint8_t  p3_valid;
+    uint16_t p3_ck;
+#endif
 } avg_point;
 
 typedef struct {
     /* the vector generator's registers (MAME's vgdata) */
     uint16_t pc;
+    uint16_t ipc;                  /* address of the instruction being executed */
+#ifdef SW_3D
+    int16_t  ip3[3];               /* sw3d.h: its 3-D tag, read with its last byte */
+    uint8_t  ip3_valid;
+    uint16_t ip3_ck;
+#endif
     uint8_t  sp;
     uint16_t dvx, dvy;
     uint8_t  dvy12;

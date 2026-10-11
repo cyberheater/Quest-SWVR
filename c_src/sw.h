@@ -55,6 +55,9 @@ typedef struct {
     uint8_t unwind;              /* set by a routine that popped its caller's return address too */
     uint64_t cyc;                /* the 6809's cycle clock (1.512 MHz): see CYC */
     uint64_t poll_at;            /* the cycle from which a checkpoint calls the host: see CK */
+#ifdef SW_3D
+    uint16_t ck;                 /* the last checkpoint passed (sw3d.h) */
+#endif
 } sw_state;
 
 extern sw_state g;
@@ -109,7 +112,11 @@ void     hw_wr16(uint16_t a, uint16_t v);
  * logs the ROM passing each of them and requires the C to pass the same ones
  * in the same order. */
 void     sw_ck(uint16_t pc);
+#ifdef SW_3D
+#define  CK(pc) do { g.ck = (pc); if (g.cyc >= g.poll_at) sw_ck(pc); } while (0)
+#else
 #define  CK(pc) do { if (g.cyc >= g.poll_at) sw_ck(pc); } while (0)
+#endif
 
 /* The start of a game frame in the mainline ($602F).  The host presents a
  * frame here; the verifier ends a pass here. */
