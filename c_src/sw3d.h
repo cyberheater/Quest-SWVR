@@ -15,6 +15,7 @@
 #define SW_3D_H
 
 #include <stdint.h>
+#include "avg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,7 +24,8 @@ extern "C" {
 typedef struct {
     int16_t  x, y, z;     /* viewer space: x depth, y across, z up */
     uint16_t ck;          /* the checkpoint at which the point was recorded */
-    uint8_t  valid;       /* 1: x, y, z; 2: the depth x only; 3: a candidate depth (see sw3d.c) */
+    uint8_t  valid;       /* 1: x, y, z; 2: the depth x only; 3: a candidate depth;
+                             4: x, y, z of a candidate, to be checked against the screen (see sw3d.c) */
     uint16_t dck;         /* the checkpoint of the divide it came from */
     uint16_t src;         /* the first point-table or math RAM byte read for this write */
     uint8_t  blk[16];     /* the 16-byte math RAM block src lies in, as it was */
@@ -34,6 +36,19 @@ void sw3d_read(uint16_t addr);              /* the program read the point table 
 void sw3d_vram_write(uint16_t addr);        /* the program wrote vector RAM */
 const sw3d_pt *sw3d_tag(uint16_t addr);     /* the point the byte at addr was written for */
 void sw3d_stats(unsigned long *divides, unsigned long *tagged);
+
+/* Where each point of a finished picture belongs.  The screen is the AVG's,
+ * in the units app.cpp draws with (x 0..250 across, y 0..280 down). */
+enum { SW3D_HUD, SW3D_WORLD, SW3D_SKY };
+typedef struct {
+    uint8_t layer;        /* SW3D_HUD: sx, sy only; SW3D_WORLD: x, y, z viewer space;
+                             SW3D_SKY: x, y, z a direction at SW3D_SKY_X */
+    float   x, y, z;
+} sw3d_out;
+#define SW3D_SKY_X 30000.0f
+/* pts: the picture's points, n of them; sx, sy their screen positions; out:
+ * one per point.  The line drawn to point i starts at point i-1. */
+void sw3d_resolve(const avg_point *pts, uint32_t n, const float *sx, const float *sy, sw3d_out *out);
 
 #ifdef __cplusplus
 }

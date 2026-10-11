@@ -98,7 +98,7 @@ static int avg_latch3(avg *a)
         const sw3d_pt *t = sw3d_tag(a->pc);
         /* a subroutine (vector ROM, or a picture copied into RAM) is
          * where its caller put it: take the tag of the calling JSR */
-        for (int d = 1; d <= 4 && (!t || t->valid == 0 || t->valid == 3) && d <= a->sp; d++) {
+        for (int d = 1; d <= 4 && (!t || t->valid == 0 || t->valid >= 3) && d <= a->sp; d++) {
             const sw3d_pt *c = sw3d_tag((uint16_t)(a->stack[(a->sp - d) & 3] - 1));
             if (c && c->valid) t = c;
         }

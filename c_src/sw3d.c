@@ -1,4 +1,5 @@
 /* sw3d.c - the 3-D tap (sw3d.h). */
+#include <math.h>
 #include <string.h>
 #include "sw.h"
 #include "sw3d.h"
@@ -17,12 +18,21 @@
 #define CK_JBJBCLP_END  0x6A0B
 #define T_M_GD          0x5E00
 
+/* VWSTAR and VWSTRG: each star is divided for with U at its entry in ST_PNT,
+ * and drawn from there in screen-sector order */
+#define T_ST_PNT        0x4C80
+#define ST_IZP          6
+#define ST_N            50
+#define CK_VWSTAR_DRAW  0x7E7F
+#define CK_VWSTRG_DRAW  0x7F7C
+
 /* the span of JOBJDRW (wsobj.c) */
 #define CK_JOBJDRW_LO   0x6819
 #define CK_JOBJDRW_HI   0x6863
 
 static sw3d_pt last;                 /* the point of the latest divide */
 static sw3d_pt bj[64];               /* JOBJPNT's points, by BJ_PNT index */
+static sw3d_pt st[ST_N];             /* the stars' points, by ST_PNT entry */
 static sw3d_pt gd[32];               /* JBJGPNT's points (depth only), by M_GD block */
 static unsigned gd_n;
 static sw3d_pt tag[0x3000];          /* per vector RAM byte */
@@ -69,6 +79,8 @@ void sw3d_divide(uint16_t divisor)
     if ((uint16_t)(g.x - T_BJ_PNT) < 0x100) {
         unsigned i = (unsigned)(uint16_t)(g.x - T_BJ_PNT) / 4u;
         if (i < 64) bj[i] = last;
+    } else if (last.valid == 1 && (uint16_t)(g.u - T_ST_PNT) < ST_N * ST_IZP) {
+        st[(uint16_t)(g.u - T_ST_PNT) / ST_IZP] = last;
     }
 }
 
@@ -78,14 +90,22 @@ void sw3d_vram_write(uint16_t addr)
     if (g.ck >= CK_JOBJDRW_LO && g.ck <= CK_JOBJDRW_HI) {
         unsigned i = (unsigned)(uint16_t)(g.x - T_BJ_PNT) / 4u;
         t = i < 64 ? bj[i] : last;
+    } else if (g.ck == CK_VWSTAR_DRAW || g.ck == CK_VWSTRG_DRAW) {
+        /* the star's long vector, then the JSR to the star shape, drawn there */
+        static sw3d_pt star;
+        if ((uint16_t)(pending_src - T_ST_PNT) < ST_N * ST_IZP)
+            star = st[(uint16_t)(pending_src - T_ST_PNT) / ST_IZP];
+        t = star;
     } else if (pending_src >= T_M_GD && pending_src < T_M_GD + 0x200 && (pending_src & 0xC) == 0xC) {
         /* a ground object's screen point: block i of M_GD */
         t = gd[(pending_src - T_M_GD) >> 4];
     } else {
         /* anything else drawn after a divide: only a candidate until the
-         * writer is known to draw what it divided for */
+         * writer is known to draw what it divided for, or (a full point) its
+         * projection is found to land where the beam does (4) */
         t = last;
-        if (t.valid) t.valid = 3;
+        if (t.valid == 1) t.valid = 4;
+        else if (t.valid) t.valid = 3;
     }
     t.ck = g.ck;                     /* where the vector was written */
     t.src = pending_src;
@@ -105,4 +125,78 @@ void sw3d_stats(unsigned long *divides, unsigned long *tagged)
 {
     *divides = n_div;
     *tagged = n_tag;
+}
+
+/* ------------------------------------------------------------------ */
+/* the resolver                                                         */
+/* ------------------------------------------------------------------ */
+
+/* The projection as the beam shows it (fitted to JOBJ points):
+ * sx = SX0 + SXK * y/x,  sy = SY0 - SYK * z/x */
+#define SX0 124.4f
+#define SXK 126.8f
+#define SY0 166.2f
+#define SYK 123.75f
+#define FIT 4.0f                     /* how near a full point's projection must land */
+
+/* The writers (g.ck at the vector RAM write) by what they draw */
+static int laser_writer(uint16_t ck) { return ck >= 0xAEC4 && ck <= 0xB044; }     /* VWLAZ, LAZVW */
+/* pictures drawn whole at the point of their divide: a sprite at its depth */
+static int sprite_writer(uint16_t ck, uint16_t dck)
+{
+    return ck == 0xAC65                                  /* GN1DRW: fireballs */
+        || ck == 0x7863                                  /* DTHVW: the Death Star */
+        || (ck == 0xCDBD && (dck == 0x7765 || dck == 0x77A4));   /* MGOWT after VWDTHA/B */
+}
+
+#define LZ_X0   256.0f               /* the guns' depth */
+#define LZ_XMAX 16384.0f
+
+static void unproject(sw3d_out *o, float x, float sx, float sy)
+{
+    o->layer = SW3D_WORLD;
+    o->x = x;
+    o->y = (sx - SX0) / SXK * x;
+    o->z = (SY0 - sy) / SYK * x;
+}
+
+void sw3d_resolve(const avg_point *pts, uint32_t n, const float *sx, const float *sy, sw3d_out *out)
+{
+    for (uint32_t i = 0; i < n; i++) {
+        const avg_point *p = &pts[i];
+        sw3d_out *o = &out[i];
+        float p3x = p->p3[0], p3y = p->p3[1], p3z = p->p3[2];
+        o->layer = SW3D_HUD;
+        o->x = sx[i]; o->y = sy[i]; o->z = 0;
+        if (laser_writer(p->p3_ck)) {
+            /* below, with the rest of its line */
+        } else if (p->p3_valid == 1 && p3x > 0) {
+            o->layer = SW3D_WORLD;
+            o->x = p3x; o->y = p3y; o->z = p3z;
+        } else if (p->p3_valid == 2 && p3x > 0) {
+            unproject(o, p3x, sx[i], sy[i]);
+        } else if (p->p3_valid == 4 && p3x > 0
+                   && fabsf(SX0 + SXK * p3y / p3x - sx[i]) + fabsf(SY0 - SYK * p3z / p3x - sy[i]) < FIT) {
+            o->layer = SW3D_WORLD;
+            o->x = p3x; o->y = p3y; o->z = p3z;
+        } else if ((p->p3_valid == 3 || p->p3_valid == 4) && p3x > 0 && sprite_writer(p->p3_ck, p->p3_dck)) {
+            unproject(o, p3x, sx[i], sy[i]);
+        }
+    }
+
+    /* A laser is drawn from a gun to the sight in halves, each half as long
+     * as the last: the screen picture of a bolt flying straight ahead.  Its
+     * depth at a fraction f of the way is LZ_X0 / (1 - f). */
+    for (uint32_t i = 1; i < n; ) {
+        if (!(laser_writer(pts[i].p3_ck) && pts[i].z)) { i++; continue; }
+        uint32_t a = i - 1, b = i;               /* a: the gun; b: the last lit point */
+        while (b + 1 < n && laser_writer(pts[b + 1].p3_ck) && pts[b + 1].z) b++;
+        float dx = sx[b] - sx[a], dy = sy[b] - sy[a], len2 = dx * dx + dy * dy;
+        for (uint32_t k = a; k <= b; k++) {
+            float f = len2 > 0 ? ((sx[k] - sx[a]) * dx + (sy[k] - sy[a]) * dy) / len2 : 0;
+            float x = f < 1 ? LZ_X0 / (1 - f) : LZ_XMAX;
+            unproject(&out[k], x < LZ_XMAX ? x : LZ_XMAX, sx[k], sy[k]);
+        }
+        i = b + 1;
+    }
 }

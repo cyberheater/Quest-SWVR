@@ -135,6 +135,16 @@ static void vg_hook(int go)
     if (d3 == (FILE *)-1) { const char *e = getenv("SW_DUMP3D"); d3 = e ? fopen(e, "w") : nullptr; }
     if (d3) fprintf(d3, "P %lu %u\n", st.pictures + 1, a->nvect);
     const avg_point *pt_prev = nullptr;
+    static float r_sx[AVG_MAXVECT], r_sy[AVG_MAXVECT];
+    static sw3d_out r3[AVG_MAXVECT];
+    if (d3) {
+        for (uint32_t i = 0; i < a->nvect; i++) {
+            r_sx[i] = (float)a->vect[i].x / 65536.0f;
+            r_sy[i] = (float)a->vect[i].y / 65536.0f;
+        }
+        sw3d_resolve(a->vect, a->nvect, r_sx, r_sy, r3);
+    }
+    sw3d_out r_start = { SW3D_HUD, 125.0f, 140.0f, 0 };
 #endif
     float px = 125.0f, py = 140.0f;
     int lit = 0;
@@ -149,10 +159,12 @@ static void vg_hook(int go)
 #ifdef SW_3D
             if (d3) {
                 const avg_point *s = pt_prev;
-                fprintf(d3, "%g %g %g %g %06X %d %04X %d %d %d %d %04X %d %d %d %d %04X %04X %04X\n", px, py, x, y,
+                fprintf(d3, "%g %g %g %g %06X %d %04X %d %d %d %d %04X %d %d %d %d %04X %04X %04X", px, py, x, y,
                         (unsigned)(rgb & 0xFFFFFF), p->z, p->src,
                         s ? s->p3_valid : 0, s ? s->p3[0] : 0, s ? s->p3[1] : 0, s ? s->p3[2] : 0, s ? s->p3_ck : 0,
                         p->p3_valid, p->p3[0], p->p3[1], p->p3[2], p->p3_ck, p->p3_dck, s ? s->p3_dck : 0);
+                const sw3d_out *rs = i ? &r3[i - 1] : &r_start, *rt = &r3[i];
+                fprintf(d3, " R %d %g %g %g %d %g %g %g\n", rs->layer, rs->x, rs->y, rs->z, rt->layer, rt->x, rt->y, rt->z);
             }
 #endif
         }

@@ -102,7 +102,13 @@ void sw_take_irq(uint16_t pc)
     push8((uint8_t)(cc_pack() | 0x80));
     CYC(SW_IRQ_ENTRY_CYCLES);
     g.fi = 1;
+#ifdef SW_3D
+    uint16_t ck = g.ck;              /* the 3-D tap goes by where the program was */
+#endif
     irq();
+#ifdef SW_3D
+    g.ck = ck;
+#endif
     cc_unpack(pull8());
     A = pull8();
     B = pull8();
