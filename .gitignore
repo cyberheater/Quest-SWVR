@@ -41,3 +41,7 @@ __pycache__/
 StarWarsTAG.asm
 docs/superpowers/
 .claude/
+
+# SDL build (c_src/CMakeLists.txt)
+c_src/build/
+c_src/sw_sdl

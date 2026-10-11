@@ -110,6 +110,9 @@ def csafe(s):
 def to_c(sym):
     """Listing expression -> C expression (same operators; $hex -> 0xhex)."""
     out = re.sub(r"\$([0-9A-Fa-f]+)", lambda m: "0x" + m.group(1), sym)
+    # 0x4E-0x5C is one pp-number to GCC and Clang (E- reads as an exponent):
+    # keep a hex literal ending in E apart from a following + or -.
+    out = re.sub(r"(0x[0-9A-Fa-f]*[eE])([-+])", r"\1 \2", out)
     return re.sub(r"[A-Za-z_][A-Za-z0-9_]*", lambda m: m.group(0) if m.group(0).startswith("0x")
                   else cname(m.group(0)), out)
 

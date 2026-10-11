@@ -20,6 +20,17 @@ sw_win.exe
 
 No ROM data is in the exe: it reads the images from `..\disasm\build`.
 
+On **macOS or Linux** the same game builds on SDL2 as `sw_sdl` ([`platform/sdl/plat_sdl.cpp`](platform/sdl/plat_sdl.cpp), [`CMakeLists.txt`](CMakeLists.txt)):
+
+```sh
+brew install cmake sdl2                # Linux: apt install cmake libsdl2-dev libgl-dev
+python3 ../disasm/image.py             # once: ROM images from your MAME starwars set in ../roms
+cmake -S . -B build && cmake --build build -j
+./sw_sdl
+```
+
+The keys are the same; it reads `sw_sdl.ini` (the same sections as `sw_win.ini`), and `--dump FILE` writes every picture's lines as text.
+
 | action | keys |
 |---|---|
 | flight yoke | mouse (it moves the yoke, which stays where it is put); arrow keys (spring back to centre); joystick |

@@ -756,7 +756,7 @@ void mesout(void)
                                             X = (VGMSGA+0x54-0x4A); /* LE880 */
                                             CYC(6);
                                         } else {     /* LE883  ELSE  MUST BE PERIOD */
-                                            X = (VGMSGA+0x4E-0x5C); /* LE885 */
+                                            X = (VGMSGA+0x4E -0x5C); /* LE885 */
                                             CYC(3);
                                         }
                                     }

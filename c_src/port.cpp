@@ -21,7 +21,7 @@
  * board's reset line to the sound board) throws the fiber away and starts a
  * new one at the reset entry.
  */
-#include <windows.h>
+#include "fiber.h"
 #include <cstdio>
 #include <cstring>
 #include "board.h"
@@ -51,18 +51,18 @@ void snd_take_irq(uint16_t pc);
 #define SND_RESET   0x7D44u
 #define FIBER_STACK (256u * 1024u * 1024u)      /* reserve: the self test never returns from its calls */
 
-static LPVOID fib_host, fib_main, fib_snd;
+static fib_t fib_host, fib_main, fib_snd;
 static uint64_t run_target;
 static int main_restart;
 static void (*on_pass)(void);
 static unsigned long n_swi, n_irq_taken;
 
 /* ---- the sound program -------------------------------------------------- */
-static VOID CALLBACK snd_fiber(LPVOID)
+static void snd_fiber(void)
 {
     for (;;) {
         snd_find(SND_RESET, 0)->fn();
-        SwitchToFiber(fib_main);                 /* it does not return; if it did, start over */
+        fib_switch(fib_main);                 /* it does not return; if it did, start over */
     }
 }
 
@@ -71,8 +71,8 @@ static void cpu_reset(int cpu) { if (cpu == SW_SOUND) snd_restart(); }   /* the 
 
 static void snd_restart(void)
 {
-    if (fib_snd) DeleteFiber(fib_snd);
-    fib_snd = CreateFiberEx(64 * 1024, 8 * 1024 * 1024, 0, snd_fiber, nullptr);
+    if (fib_snd) fib_delete(fib_snd);
+    fib_snd = fib_create(8 * 1024 * 1024, snd_fiber);
     gsnd.cyc = SW.snd_cyc;
     gsnd.fi = 1;
     gsnd.dp = 0;
@@ -89,7 +89,7 @@ static void snd_sync(void)
         SW.snd_cyc = gsnd.cyc;
         sw_snd_chips_advance();
     }
-    if (gsnd.cyc >= g.cyc) SwitchToFiber(fib_main);
+    if (gsnd.cyc >= g.cyc) fib_switch(fib_main);
     gsnd.poll_at = 0;                            /* the sound program is small: every checkpoint comes here */
 }
 
@@ -116,11 +116,11 @@ extern "C" void snd_swi(uint16_t) { gsnd.fi = 1; snd_find(SND_RESET, 0)->fn(); }
 extern "C" void snd_thunk(uint16_t, int) { gsnd.fi = 1; snd_find(SND_RESET, 0)->fn(); }
 
 /* ---- the main program ---------------------------------------------------- */
-static VOID CALLBACK main_fiber(LPVOID)
+static void main_fiber(void)
 {
     for (;;) {
         sw_find(MAIN_RESET, 0)->fn();
-        SwitchToFiber(fib_host);
+        fib_switch(fib_host);
     }
 }
 
@@ -142,7 +142,7 @@ static void main_sync(void)
             SW.n_wd_bites++;
             sw_machine_reset(SW_RST_WATCHDOG);
             main_restart = 1;
-            SwitchToFiber(fib_host);
+            fib_switch(fib_host);
         }
         while (SW.cyc >= SW.next_irq) {
             if (SW.irq_pending) SW.n_irq_lost++;
@@ -151,13 +151,13 @@ static void main_sync(void)
             SW.next_irq += SW_IRQ_CYCLES;
         }
         avg_run(&SW.vg, SW.cyc * 8);
-        if (gsnd.cyc < g.cyc) SwitchToFiber(fib_snd);
+        if (gsnd.cyc < g.cyc) fib_switch(fib_snd);
         if (!SW.irq_pending || g.fi) break;
         SW.irq_pending = 0;
         n_irq_taken++;
         sw_take_irq(0x6100);                    /* the handler checks the PC it interrupted is in the program */
     }
-    if (g.cyc >= run_target) SwitchToFiber(fib_host);
+    if (g.cyc >= run_target) fib_switch(fib_host);
     /* until then a checkpoint has nothing to do: the next interrupt, or the
      * end of this slice.  (An interrupt that is waiting behind SEI is taken at
      * the CLI.) */
@@ -209,7 +209,7 @@ extern "C" void sw_thunk(uint16_t, int) { sw_swi(0); }
 void port_power_on(const sw_roms *roms, void (*pass_hook)(void))
 {
     on_pass = pass_hook;
-    if (!fib_host) fib_host = ConvertThreadToFiber(nullptr);
+    if (!fib_host) fib_host = fib_self();
 
     memset(&g, 0, sizeof g);
     memcpy(g.mem + 0x3000, roms->main_rom + 0x3000, 0x1000);
@@ -222,8 +222,8 @@ void port_power_on(const sw_roms *roms, void (*pass_hook)(void))
     sw_bind_memory(g.mem);
     sw_power_on();                               /* resets the sound board too: snd_restart() */
     main_cpu_reset();
-    if (fib_main) DeleteFiber(fib_main);
-    fib_main = CreateFiberEx(64 * 1024, FIBER_STACK, 0, main_fiber, nullptr);
+    if (fib_main) fib_delete(fib_main);
+    fib_main = fib_create(FIBER_STACK, main_fiber);
     main_restart = 0;
 }
 
@@ -238,12 +238,12 @@ void port_run_until(uint64_t target)
     run_target = target;
     while (g.cyc < target) {
         if (main_restart) {
-            DeleteFiber(fib_main);
-            fib_main = CreateFiberEx(64 * 1024, FIBER_STACK, 0, main_fiber, nullptr);
+            fib_delete(fib_main);
+            fib_main = fib_create(FIBER_STACK, main_fiber);
             main_cpu_reset();
             main_restart = 0;
         }
-        SwitchToFiber(fib_main);
+        fib_switch(fib_main);
     }
     SW.cyc = g.cyc;
 }

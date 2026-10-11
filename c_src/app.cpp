@@ -47,7 +47,7 @@ static uint8_t *main_mem(void) { return port_main_mem(); }
 /* ------------------------------------------------------------------ */
 static int load(const char *name, std::vector<uint8_t> &v, size_t want)
 {
-    std::string path = std::string(opt.rom_dir) + "\\" + name;
+    std::string path = std::string(opt.rom_dir) + "/" + name;     /* "/" works on Windows too */
     FILE *f = fopen(path.c_str(), "rb");
     if (!f) {
         snprintf(err, sizeof err, "cannot open %s\n\nBuild the ROM images first:  python disasm\\gen_from_roms.py "
