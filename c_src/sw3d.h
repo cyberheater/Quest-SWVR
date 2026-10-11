@@ -23,7 +23,8 @@ extern "C" {
 typedef struct {
     int16_t  x, y, z;     /* viewer space: x depth, y across, z up */
     uint16_t ck;          /* the checkpoint at which the point was recorded */
-    uint8_t  valid;
+    uint8_t  valid;       /* 1: x, y, z; 2: the depth x only; 3: a candidate depth (see sw3d.c) */
+    uint16_t dck;         /* the checkpoint of the divide it came from */
     uint16_t src;         /* the first point-table or math RAM byte read for this write */
     uint8_t  blk[16];     /* the 16-byte math RAM block src lies in, as it was */
 } sw3d_pt;

@@ -29,7 +29,7 @@ typedef struct {
 #ifdef SW_3D
     int16_t  p3[3];      /* sw3d.h: the 3-D point the beam went to, as tagged when drawn */
     uint8_t  p3_valid;
-    uint16_t p3_ck;
+    uint16_t p3_ck, p3_dck;
 #endif
 } avg_point;
 
@@ -40,7 +40,7 @@ typedef struct {
 #ifdef SW_3D
     int16_t  ip3[3];               /* sw3d.h: its 3-D tag, read with its last byte */
     uint8_t  ip3_valid;
-    uint16_t ip3_ck;
+    uint16_t ip3_ck, ip3_dck;
 #endif
     uint8_t  sp;
     uint16_t dvx, dvy;

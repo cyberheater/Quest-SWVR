@@ -53,6 +53,7 @@ static void add_point(avg *a, int32_t x, int32_t y, uint8_t color, uint8_t z)
             v->p3[1] = a->ip3[1];
             v->p3[2] = a->ip3[2];
             v->p3_ck = a->ip3_ck;
+            v->p3_dck = a->ip3_dck;
         }
 #endif
         a->nvect++;
@@ -95,11 +96,18 @@ static int avg_latch3(avg *a)
         /* the tag goes with the bytes as they are read: the program may
          * rewrite them before the beam gets to the end of the vector */
         const sw3d_pt *t = sw3d_tag(a->pc);
+        /* a subroutine (vector ROM, or a picture copied into RAM) is
+         * where its caller put it: take the tag of the calling JSR */
+        for (int d = 1; d <= 4 && (!t || t->valid == 0 || t->valid == 3) && d <= a->sp; d++) {
+            const sw3d_pt *c = sw3d_tag((uint16_t)(a->stack[(a->sp - d) & 3] - 1));
+            if (c && c->valid) t = c;
+        }
         a->ip3_valid = t ? t->valid : 0;
         a->ip3[0] = t ? t->x : 0;
         a->ip3[1] = t ? t->y : 0;
         a->ip3[2] = t ? t->z : 0;
         a->ip3_ck = t ? t->ck : 0;
+        a->ip3_dck = t ? t->dck : 0;
     }
 #endif
     a->int_latch = a->data >> 4;

@@ -149,10 +149,10 @@ static void vg_hook(int go)
 #ifdef SW_3D
             if (d3) {
                 const avg_point *s = pt_prev;
-                fprintf(d3, "%g %g %g %g %06X %d %04X %d %d %d %d %04X %d %d %d %d %04X\n", px, py, x, y,
+                fprintf(d3, "%g %g %g %g %06X %d %04X %d %d %d %d %04X %d %d %d %d %04X %04X %04X\n", px, py, x, y,
                         (unsigned)(rgb & 0xFFFFFF), p->z, p->src,
                         s ? s->p3_valid : 0, s ? s->p3[0] : 0, s ? s->p3[1] : 0, s ? s->p3[2] : 0, s ? s->p3_ck : 0,
-                        p->p3_valid, p->p3[0], p->p3[1], p->p3[2], p->p3_ck);
+                        p->p3_valid, p->p3[0], p->p3[1], p->p3[2], p->p3_ck, p->p3_dck, s ? s->p3_dck : 0);
             }
 #endif
         }
