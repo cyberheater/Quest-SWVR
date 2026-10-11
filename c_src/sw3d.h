@@ -39,13 +39,11 @@ void sw3d_stats(unsigned long *divides, unsigned long *tagged);
 
 /* Where each point of a finished picture belongs.  The screen is the AVG's,
  * in the units app.cpp draws with (x 0..250 across, y 0..280 down). */
-enum { SW3D_HUD, SW3D_WORLD, SW3D_SKY };
+enum { SW3D_HUD, SW3D_WORLD };
 typedef struct {
-    uint8_t layer;        /* SW3D_HUD: sx, sy only; SW3D_WORLD: x, y, z viewer space;
-                             SW3D_SKY: x, y, z a direction at SW3D_SKY_X */
-    float   x, y, z;
+    uint8_t layer;        /* SW3D_HUD: x, y the screen; SW3D_WORLD: x, y, z viewer space */
+    float   x, y, z;      /* together, so &x is the point as float[3] */
 } sw3d_out;
-#define SW3D_SKY_X 30000.0f
 /* pts: the picture's points, n of them; sx, sy their screen positions; out:
  * one per point.  The line drawn to point i starts at point i-1. */
 void sw3d_resolve(const avg_point *pts, uint32_t n, const float *sx, const float *sy, sw3d_out *out);

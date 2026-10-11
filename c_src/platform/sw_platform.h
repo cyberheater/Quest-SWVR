@@ -34,6 +34,21 @@ void plat_video_begin(void);
 void plat_video_line(float x0, float y0, float x1, float y1, uint32_t rgb, int intensity);
 void plat_video_present(void);
 
+/* ---- 3-D (builds with SW_3D only) ----------------------------------------
+ * With plat_video_3d() nonzero, a line whose two ends sw3d_resolve (sw3d.h)
+ * placed in the world comes through plat_video_line3 instead, in the game's
+ * viewer space: x the depth ahead, y across to the right, z up, in the
+ * game's units.  The cabinet's own camera is at the origin looking along x;
+ * it puts a point on the tube at SW_PROJ_X0 + SW_PROJ_XK * y / x across and
+ * SW_PROJ_Y0 - SW_PROJ_YK * z / x down (fitted to the beam).  The HUD
+ * (scores, messages, sight, cockpit) still comes through plat_video_line. */
+#define SW_PROJ_X0 124.4f
+#define SW_PROJ_XK 126.8f
+#define SW_PROJ_Y0 166.2f
+#define SW_PROJ_YK 123.75f
+int  plat_video_3d(void);
+void plat_video_line3(const float a[3], const float b[3], uint32_t rgb, int intensity);
+
 /* ---- input ------------------------------------------------------------
  * pitch, yaw: the flight yoke through the A-to-D converter, 0..255, $80 at
  * rest.  Everything else 0/1, 1 = pressed / switch closed.  test, diag and

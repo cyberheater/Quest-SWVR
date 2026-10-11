@@ -31,6 +31,8 @@ cmake -S . -B build && cmake --build build -j
 
 The keys are the same; it reads `sw_sdl.ini` (the same sections as `sw_win.ini`), and `--dump FILE` writes every picture's lines as text.
 
+The CMake build also has the **3-D tap** (`SW_3D`, on by default; [`sw3d.h`](sw3d.h)): it watches the game's own perspective divides and gives every drawn line its point in the game's 3-D space (TIE fighters, Vader, towers, bunkers, the trench, the Death Star, stars, fireballs, lasers), while scores, messages, the sight and the cockpit stay a flat HUD. **F5** shows the world from a camera of your own: J/L turn, I/K look up and down, U/O step aside, Y/H move ahead and back, R/F rise and fall, 0 back to the cockpit (`--view3d YAW,PITCH,SIDE,BACK,UP` starts there). `SW_DUMP3D=FILE` writes each line with its 3-D ends, and `tools/view3d.py` draws a picture of that from elsewhere. The tap only watches: the machine runs cycle for cycle as without it.
+
 | action | keys |
 |---|---|
 | flight yoke | mouse (it moves the yoke, which stays where it is put); arrow keys (spring back to centre); joystick |

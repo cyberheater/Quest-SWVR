@@ -7,6 +7,11 @@
  * testing switches the scenario tools use (--script, --passes, --turbo,
  * --quit-after-ms, --hidden) plus --dump, which writes every picture's lines.
  *
+ * Built with SW_3D it can also show the world from a camera of your own: F5
+ * turns the 3-D view on and off; J/L turn, I/K look up and down, U/O step
+ * aside, Y/H move ahead and back, R/F rise and fall, 0 puts the camera back
+ * in the cockpit.  --view3d YAW,PITCH,SIDE,BACK,UP starts with it on there.
+ *
  * Paths: the executable's own folder (SDL_GetBasePath) holds sw_sdl.ini and
  * starwars.nv; the ROM images are read from <exe>/../disasm/build unless
  * [main] rom_dir or --romdir say otherwise.
@@ -102,6 +107,11 @@ static unsigned long quit_after_passes;
 static std::string nv_override, script_path, romdir_cli, dump_path;
 static FILE    *dump_file;
 
+/* the 3-D view's camera: degrees (yaw to the left, pitch down), and the
+ * game's units in viewer space (side to the right, back, up) */
+static int   view3;
+static float cam_yaw, cam_pitch, cam_side, cam_back, cam_up;
+
 static int parse_args(int argc, char **argv)
 {
     for (int i = 1; i < argc; i++) {
@@ -117,6 +127,10 @@ static int parse_args(int argc, char **argv)
         else if (!strcmp(a, "--nvram") && i + 1 < argc) nv_override = argv[++i];
         else if (!strcmp(a, "--quit-after-ms") && i + 1 < argc) quit_after_ms = atof(argv[++i]);
         else if (!strcmp(a, "--passes") && i + 1 < argc) quit_after_passes = strtoul(argv[++i], nullptr, 0);
+        else if (!strcmp(a, "--view3d") && i + 1 < argc) {
+            view3 = 1;
+            sscanf(argv[++i], "%f,%f,%f,%f,%f", &cam_yaw, &cam_pitch, &cam_side, &cam_back, &cam_up);
+        }
         else return 1;
     }
     return 0;
@@ -142,6 +156,8 @@ static float  brightness = 1.6f, linewidth = 2.0f;
 
 struct seg { float x0, y0, x1, y1; uint32_t rgb; int in; };
 static std::vector<seg> building, shown;
+struct seg3 { float a[3], b[3]; uint32_t rgb; int in; };
+static std::vector<seg3> building3;
 static int present_pending;
 static unsigned long n_pictures;
 
@@ -200,7 +216,56 @@ static int gl_init(void)
     return 0;
 }
 
-void plat_video_begin(void) { building.clear(); }
+void plat_video_begin(void) { building.clear(); building3.clear(); }
+
+int plat_video_3d(void) { return view3; }
+
+void plat_video_line3(const float a[3], const float b[3], uint32_t rgb, int intensity)
+{
+    building3.push_back({ { a[0], a[1], a[2] }, { b[0], b[1], b[2] }, rgb, intensity });
+}
+
+/* The world as the camera sees it, on the tube's own projection. */
+static void view_world(void)
+{
+    const float d2r = 3.14159265f / 180.0f;
+    const float cy = cosf(cam_yaw * d2r), sy = sinf(cam_yaw * d2r);
+    const float cp = cosf(cam_pitch * d2r), sp = sinf(cam_pitch * d2r);
+    const float NEAR = 20.0f;
+    auto cam = [&](const float *p, float *o) {
+        float x = p[0] + cam_back, y = p[1] - cam_side, z = p[2] - cam_up;
+        float x1 = x * cy - y * sy, y1 = x * sy + y * cy;
+        o[0] = x1 * cp - z * sp; o[1] = y1; o[2] = x1 * sp + z * cp;
+    };
+    for (auto &s : building3) {
+        float a[3], b[3];
+        cam(s.a, a);
+        cam(s.b, b);
+        if (a[0] < NEAR && b[0] < NEAR) continue;
+        if (a[0] < NEAR || b[0] < NEAR) {
+            float t = (NEAR - a[0]) / (b[0] - a[0]);
+            float *n = a[0] < NEAR ? a : b;
+            for (int k = 0; k < 3; k++) n[k] = a[k] + (b[k] - a[k]) * t;
+            n[0] = NEAR;
+        }
+        building.push_back({ SW_PROJ_X0 + SW_PROJ_XK * a[1] / a[0], SW_PROJ_Y0 - SW_PROJ_YK * a[2] / a[0],
+                             SW_PROJ_X0 + SW_PROJ_XK * b[1] / b[0], SW_PROJ_Y0 - SW_PROJ_YK * b[2] / b[0],
+                             s.rgb, s.in });
+    }
+}
+
+static void move_camera(double dt)
+{
+    if (!view3 || !win) return;
+    const Uint8 *k = SDL_GetKeyboardState(nullptr);
+    float turn = 60.0f * (float)dt, step = 600.0f * (float)dt;
+    cam_yaw   += turn * ((k[SDL_SCANCODE_J] ? 1 : 0) - (k[SDL_SCANCODE_L] ? 1 : 0));
+    cam_pitch += turn * ((k[SDL_SCANCODE_K] ? 1 : 0) - (k[SDL_SCANCODE_I] ? 1 : 0));
+    cam_side  += step * ((k[SDL_SCANCODE_O] ? 1 : 0) - (k[SDL_SCANCODE_U] ? 1 : 0));
+    cam_back  += step * ((k[SDL_SCANCODE_H] ? 1 : 0) - (k[SDL_SCANCODE_Y] ? 1 : 0));
+    cam_up    += step * ((k[SDL_SCANCODE_R] ? 1 : 0) - (k[SDL_SCANCODE_F] ? 1 : 0));
+    if (k[SDL_SCANCODE_0]) cam_yaw = cam_pitch = cam_side = cam_back = cam_up = 0;
+}
 
 void plat_video_line(float x0, float y0, float x1, float y1, uint32_t rgb, int intensity)
 {
@@ -209,6 +274,7 @@ void plat_video_line(float x0, float y0, float x1, float y1, uint32_t rgb, int i
 
 void plat_video_present(void)
 {
+    view_world();
     shown.swap(building);
     present_pending = 1;
     n_pictures++;
@@ -317,6 +383,7 @@ static void pump_events(void)
             case SDL_SCANCODE_F2: test_latch = !test_latch; break;
             case SDL_SCANCODE_F4: sndtest_latch = !sndtest_latch; break;
             case SDL_SCANCODE_F8: set_capture(!mouse_captured); break;
+            case SDL_SCANCODE_F5: view3 = !view3; break;
             case SDL_SCANCODE_RETURN:
                 if (e.key.keysym.mod & (KMOD_ALT | KMOD_GUI)) {
                     Uint32 fs = SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN_DESKTOP;
@@ -495,7 +562,8 @@ int main(int argc, char **argv)
     if (parse_args(argc, argv)) {
         fprintf(stderr,
             "usage: %s [--rev 1|2] [--romdir DIR] [--test] [--nvram FILE] [--no-nvram]\n"
-            "  testing: [--script FILE] [--passes N] [--quit-after-ms MS] [--turbo] [--hidden] [--dump FILE]\n",
+            "  testing: [--script FILE] [--passes N] [--quit-after-ms MS] [--turbo] [--hidden] [--dump FILE]\n"
+            "  3-D:     [--view3d YAW,PITCH,SIDE,BACK,UP]\n",
             argv[0]);
         return 2;
     }
@@ -574,6 +642,9 @@ int main(int argc, char **argv)
         if (win) pump_events();
         if (g_quit) break;
         double now = plat_now_ms();
+        static double cam_t = now;
+        move_camera((now - cam_t) / 1000.0);
+        cam_t = now;
         sw_app_run(now);
         sw_app_get_stats(&st);
         if (quit_after_passes && st.passes >= quit_after_passes) g_quit = 1;

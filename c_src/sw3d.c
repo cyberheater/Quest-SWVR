@@ -3,6 +3,7 @@
 #include <string.h>
 #include "sw.h"
 #include "sw3d.h"
+#include "platform/sw_platform.h"
 
 /* Math RAM cells and the object point table (sw_defs.h) */
 #define T_M_XP   0x5000
@@ -131,12 +132,12 @@ void sw3d_stats(unsigned long *divides, unsigned long *tagged)
 /* the resolver                                                         */
 /* ------------------------------------------------------------------ */
 
-/* The projection as the beam shows it (fitted to JOBJ points):
+/* The projection as the beam shows it (sw_platform.h):
  * sx = SX0 + SXK * y/x,  sy = SY0 - SYK * z/x */
-#define SX0 124.4f
-#define SXK 126.8f
-#define SY0 166.2f
-#define SYK 123.75f
+#define SX0 SW_PROJ_X0
+#define SXK SW_PROJ_XK
+#define SY0 SW_PROJ_Y0
+#define SYK SW_PROJ_YK
 #define FIT 4.0f                     /* how near a full point's projection must land */
 
 /* The writers (g.ck at the vector RAM write) by what they draw */

@@ -6,8 +6,8 @@ run with SW_DUMP3D=FILE) from somewhere the cabinet's camera never was.
 
 Each lit line in the dump ends in "R ls xs ys zs lt xt yt zt": the layer and
 point sw3d_resolve gave its two ends (0 HUD: screen x, y; 1 world: viewer
-space, x depth, y across, z up; 2 sky: a direction).  The sheet has four
-panels: the picture as the cabinet drew it; the world and sky re-projected
+space, x depth, y across, z up).  The sheet has four
+panels: the picture as the cabinet drew it; the world re-projected
 from the cabinet's own camera with the HUD on top (it should look the same);
 the world from the moved camera; and the world from above.
 """
@@ -55,8 +55,7 @@ def camera(yaw, pitch, side, back):
 
     def view(p, layer):
         x, y, z = p
-        if layer == 1:                # the world moves; the sky stays put
-            x, y = x + back, y - side
+        x, y = x + back, y - side
         x, y = x * cy - y * sy_, x * sy_ + y * cy
         x, z = x * cp - z * sp, x * sp + z * cp
         return x, y, z
@@ -107,10 +106,10 @@ def main():
             pos.append(a)
     dump, pic, out = pos[0], int(pos[1]), pos[2]
     lines = load(dump, pic)
-    n = [0, 0, 0]
+    n = [0, 0]
     for l in lines:
         n[l['t'][0]] += 1
-    print('picture %d: %d lines, %d HUD, %d world, %d sky' % (pic, len(lines), *n))
+    print('picture %d: %d lines, %d HUD, %d world' % (pic, len(lines), *n))
 
     panels = []
     im = Image.new('RGB', (W, H)); d = ImageDraw.Draw(im)

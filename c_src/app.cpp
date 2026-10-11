@@ -137,7 +137,8 @@ static void vg_hook(int go)
     const avg_point *pt_prev = nullptr;
     static float r_sx[AVG_MAXVECT], r_sy[AVG_MAXVECT];
     static sw3d_out r3[AVG_MAXVECT];
-    if (d3) {
+    const int view3 = plat_video_3d();
+    if (d3 || view3) {
         for (uint32_t i = 0; i < a->nvect; i++) {
             r_sx[i] = (float)a->vect[i].x / 65536.0f;
             r_sy[i] = (float)a->vect[i].y / 65536.0f;
@@ -154,6 +155,11 @@ static void vg_hook(int go)
         if (p->z) {
             uint32_t rgb = 0xFF000000u | ((p->color & 4) ? 0xFFu : 0) | ((p->color & 2) ? 0xFF00u : 0)
                          | ((p->color & 1) ? 0xFF0000u : 0);
+#ifdef SW_3D
+            if (view3 && i && r3[i - 1].layer == SW3D_WORLD && r3[i].layer == SW3D_WORLD)
+                plat_video_line3(&r3[i - 1].x, &r3[i].x, rgb, p->z);
+            else
+#endif
             plat_video_line(px, py, x, y, rgb, p->z);
             lit++;
 #ifdef SW_3D
