@@ -47,8 +47,8 @@
  *   DEPTH  how near the world is, and so how deep it is between the eyes:
  *          four times farther .. four times nearer about unit_metres in the
  *          middle                                          ([vr] depth_adjust)
- *   STARS  how far away the stars are, from a sixty-fourth of star_depth at
- *          the left to star_depth at the right              ([vr] star_adjust)
+ *   STARS  how far away the stars are, from 1/4096 of star_depth (among
+ *          the ships) at the left to star_depth at the right ([vr] star_adjust)
  *
  * Either hand can hold the flight stick: Y (the left controller's centring
  * button) gives it to the left hand, B to the right.
@@ -198,13 +198,13 @@ static float menu_at[MENU_N] = { 0.0f, 0.0f, 1.0f };    /* the sliders, each -1 
 static int   menu_row;                /* the one the thumbstick has */
 static int   slider_open;
 static float unit_base = 0.005f;      /* [vr] unit_metres: the middle of the depth slider */
-static float star_far = 65536.0f;     /* [vr] star_depth: the right end of the stars slider; 0: the game's own stars */
+static float star_far = 4194304.0f;    /* [vr] star_depth: the right end of the stars slider; 0: the game's own stars */
 /* The resolver is asked to put the stars at this depth, which nothing else
  * has, so that the picture's stars can be told and drawn at star_now: the
  * stars slider then moves them in a picture already made, with the machine
  * stopped. */
-#define STAR_TAG 1048576.0f
-static float star_now = 65536.0f;
+#define STAR_TAG 16777216.0f
+static float star_now = 4194304.0f;
 static float view_scale = 0.675f;     /* the whole picture's size to the eye; 1: the tube's own 90 degrees across */
 enum { AIM_FLIGHT, AIM_YOKE, AIM_POINT, AIM_STICK, AIM_N };
 static const char *const aim_names[] = { "flight", "yoke", "point", "stick" };
@@ -1040,7 +1040,7 @@ static void menu_apply(void)
 {
     view_scale = view_base * (1.0f + 0.2f * menu_at[MENU_SIZE]);
     unit_metres = unit_base * powf(4.0f, -menu_at[MENU_DEPTH]);                 /* to the right: nearer, deeper */
-    star_now = star_far * powf(64.0f, (menu_at[MENU_STARS] - 1.0f) * 0.5f);     /* a sky behind the ships, or nearer */
+    star_now = star_far * powf(4096.0f, (menu_at[MENU_STARS] - 1.0f) * 0.5f);   /* a sky behind the ships, or nearer */
     sw3d_star_depth(star_far > 0.0f ? STAR_TAG : 0.0f);
 }
 
@@ -1048,6 +1048,7 @@ static void menu_apply(void)
  * click puts it away, and the machine goes on a quarter of a second later.
  * Called every turn of the main loop, whether the machine runs or not. */
 static double resume_at;
+static void menu_save(void);
 
 static void menu_update(double now)
 {
@@ -1058,13 +1059,7 @@ static void menu_update(double now)
     if (xin.menu && !menu_was) {
         slider_open = !slider_open;
         if (!slider_open) {
-            static const char *const keys[MENU_N] = { "view_adjust", "depth_adjust", "star_adjust" };
-            for (int k = 0; k < MENU_N; k++) {
-                char v[32];
-                snprintf(v, sizeof v, "%.3f", menu_at[k]);
-                ini_save(path_ini, "vr", keys[k], v);
-                logf("[vr] %s=%s", keys[k], v);
-            }
+            menu_save();
             resume_at = now + 250.0;
         }
     }
@@ -1081,6 +1076,17 @@ static void menu_update(double now)
 }
 
 static int machine_stopped(double now) { return slider_open || now < resume_at; }
+
+static void menu_save(void)
+{
+    static const char *const keys[MENU_N] = { "view_adjust", "depth_adjust", "star_adjust" };
+    for (int k = 0; k < MENU_N; k++) {
+        char v[32];
+        snprintf(v, sizeof v, "%.3f", menu_at[k]);
+        ini_save(path_ini, "vr", keys[k], v);
+        logf("[vr] %s=%s", keys[k], v);
+    }
+}
 
 void plat_input_poll(plat_inputs *in)
 {
@@ -1454,6 +1460,7 @@ int main(int argc, char **argv)
          st.passes, (unsigned long long)st.cycles, (double)st.cycles / 1512000.0,
          (plat_now_ms() - t_start) / 1000.0, st.pictures, st.irqs, st.phase);
     logf("[vr] unit_metres=%g view_scale=%g hud_distance=%g aim=%s", unit_metres, view_scale, hud_distance, aim_names[aim_mode]);
+    if (slider_open) menu_save();                   /* left with the menu up: as it stood */
     sw_app_exit();
     xr_exit();
     if (glctx) SDL_GL_DeleteContext(glctx);

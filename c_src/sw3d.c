@@ -160,7 +160,8 @@ static int sight_writer(uint16_t ck) { return ck == 0xB6CC; }
 
 static float star_depth;
 void sw3d_star_depth(float depth) { star_depth = depth; }
-static int star_writer(uint16_t ck) { return ck == CK_VWSTAR_DRAW || ck == CK_VWSTRG_DRAW; }
+/* the stars of space only: VWSTRG's are the lights on the ground, which is where they belong */
+static int star_writer(uint16_t ck) { return ck == CK_VWSTAR_DRAW; }
 
 static void unproject(sw3d_out *o, float x, float sx, float sy)
 {
