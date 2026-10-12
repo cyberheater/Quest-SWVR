@@ -9,6 +9,10 @@ It was written for a **Meta Quest 3 connected to a Windows PC** (Quest Link,
 Air Link or Virtual Desktop). Any PC headset whose OpenXR runtime accepts
 OpenGL should work, but only the Quest has been tried.
 
+There is also a **native Quest app** that runs in the headset by itself, with
+no PC and no cable once it is installed: see
+[On the Quest itself](#on-the-quest-itself).
+
 No ROM data is included. You need your own MAME `starwars` ROM set.
 
 - [What you need](#what-you-need)
@@ -18,6 +22,7 @@ No ROM data is included. You need your own MAME `starwars` ROM set.
 - [Controls](#controls)
 - [The menu: size, depth and stars](#the-menu-size-depth-and-stars)
 - [Settings file](#settings-file)
+- [On the Quest itself](#on-the-quest-itself)
 - [Troubleshooting](#troubleshooting)
 
 ## What you need
@@ -201,6 +206,7 @@ saved.
 | **SIZE** | Whole picture 20% smaller | 20% larger |
 | **DEPTH** | World four times farther away: flatter, feels bigger | Four times nearer: stronger 3-D, feels like a model |
 | **STARS** | Stars close, flying past among the ships | Stars a distant sky behind everything |
+| **QUIT** | Press **A** or **X** on this row to leave the game | |
 
 If the scores at the edges are hard to see, lower SIZE. If things come
 uncomfortably close to your face, lower DEPTH.
@@ -246,6 +252,100 @@ use only tilt or only movement, set the other to 0.
 
 High scores are kept in `starwars.nv` in the same folder.
 
+## On the Quest itself
+
+`StarWarsQuest.apk` is the same game as an app for the headset: the same
+cockpit, flight stick and menu, running on the Quest's own processor. It is
+not on the Meta store; you install it yourself ("sideloading"), which needs a
+PC once.
+
+### What you need
+
+- A Quest 2, 3, 3S or Pro (tried on a Quest 3 only)
+- A PC and a USB cable, for the one-time install
+- The six ROM image files made from your own `starwars.zip` (step 4 of
+  [Install](#install); only Python and the `disasm` folder are needed for it)
+
+### 1. Turn on developer mode
+
+In the **Meta Horizon** phone app: Menu, Devices, your headset, Headset
+settings, **Developer mode**, on. The first time, it asks you to create a
+developer organisation, which is free:
+<https://developer.oculus.com/manage/organizations/create/>.
+
+### 2. Install the app
+
+Connect the headset to the PC by USB, put it on, and choose **Allow** on the
+"Allow USB debugging?" prompt (tick "Always allow from this computer").
+
+Then either:
+
+- **SideQuest** (<https://sidequestvr.com>, the "Advanced Installer"): open
+  it, wait for the green dot, and drag `StarWarsQuest.apk` onto its window; or
+- **adb**, from Google's
+  [platform-tools](https://developer.android.com/tools/releases/platform-tools):
+
+  ```powershell
+  adb install -r StarWarsQuest.apk
+  ```
+
+### 3. Start it once
+
+In the headset: Library, the filter at the top right, **Unknown Sources**,
+**Star Wars**. With no ROM images yet it shows the words **NO ROMS**. That
+first start creates the app's folder. Quit with the Meta button.
+
+### 4. Copy the ROM images to the headset
+
+The six files `disasm\build\starwars_*.bin` go into this folder on the
+headset:
+
+```
+Android/data/com.cyberheater.starwars/files
+```
+
+- **adb:**
+
+  ```powershell
+  adb push disasm\build\. /sdcard/Android/data/com.cyberheater.starwars/files/
+  ```
+
+- **SideQuest:** its file browser (the folder icon), go to that folder, and
+  drag the six files in.
+- **Windows Explorer:** with the headset on USB and "Allow access to data"
+  accepted in the headset, open the headset's Internal shared storage and go
+  to that folder. Some headset software versions hide `Android/data` here; use
+  one of the other two ways if so.
+
+Start Star Wars again and the game runs. The cable is no longer needed.
+
+### Playing
+
+Everything in [How to play](#how-to-play), [Controls](#controls) (the Touch
+controller part) and [The menu](#the-menu-size-depth-and-stars) applies. There
+is no keyboard, so:
+
+- **Quit:** the menu's **QUIT** row, or the Meta button and Quit.
+- **Settings:** the menu's sliders are saved automatically. The other options
+  of the [settings file](#settings-file) work too: put an `sw_xr.ini` in the
+  folder above, beside the ROM images. `sw_xr.log` and the high scores
+  (`starwars.nv`) are kept there as well.
+- Taking the headset off pauses the game.
+
+### Building the app yourself
+
+With the Android SDK (platform-tools, `platforms;android-34`,
+`build-tools;34.0.0`, `ndk;26.3.11579264`, `cmake;3.22.1`), a JDK 17 and the
+unpacked `org.khronos.openxr:openxr_loader_for_android` package:
+
+```powershell
+c_src\platform\openxr\android\build_quest.ps1 -Sdk <the SDK> -OpenXR <the unpacked loader>
+```
+
+It writes `c_src\StarWarsQuest.apk`, signed with a key of its own that it
+makes on first use. An update only installs over a copy signed with the same
+key; uninstall the old one first otherwise (the ROM images go with it).
+
 ## Troubleshooting
 
 `sw_xr.log`, beside the exe, is rewritten on every run and says what happened.
@@ -263,3 +363,6 @@ High scores are kept in `starwars.nv` in the same folder.
 | The sight feels slightly behind your hand | That is the original game: it eases the sight toward the yoke rather than jumping. |
 | Everything is too big to take in | Open the menu and lower SIZE. |
 | The build cannot write `sw_xr.exe` | The game is still running. Quit it and build again. |
+| Quest app: the words NO ROMS | The six `starwars_*.bin` files are not in `Android/data/com.cyberheater.starwars/files`. |
+| Quest app: it closes at once | `sw_xr.log` in that folder says why. |
+| Quest app: the update will not install | It was signed with a different key. Uninstall Star Wars from the headset, install again, and copy the ROM images again. |
