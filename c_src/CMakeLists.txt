@@ -53,6 +53,7 @@ if(ANDROID)
         ${OPENXR_ANDROID}/prefab/modules/openxr_loader/libs/android.${ANDROID_ABI}/libopenxr_loader.so)
     add_library(starwars SHARED
         platform/openxr/plat_openxr.cpp ${GLUE}/android_native_app_glue.c
+        romzip.cpp platform/windows/miniz.c
         hw.cpp app.cpp port.cpp sw3d.c
         avg.c mathbox.c x2212.c riot6532.c c012294.c tms5220.cpp)
     target_include_directories(starwars PRIVATE

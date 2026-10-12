@@ -263,8 +263,7 @@ PC once.
 
 - A Quest 2, 3, 3S or Pro (tried on a Quest 3 only)
 - A PC and a USB cable, for the one-time install
-- The six ROM image files made from your own `starwars.zip` (step 4 of
-  [Install](#install); only Python and the `disasm` folder are needed for it)
+- Your own `starwars.zip`, the MAME `starwars` ROM set, as it is
 
 ### 1. Turn on developer mode
 
@@ -292,13 +291,12 @@ Then either:
 ### 3. Start it once
 
 In the headset: Library, the filter at the top right, **Unknown Sources**,
-**Star Wars**. With no ROM images yet it shows the words **NO ROMS**. That
+**Star Wars**. With no ROM set yet it shows the words **NO ROMS**. That
 first start creates the app's folder. Quit with the Meta button.
 
-### 4. Copy the ROM images to the headset
+### 4. Copy your ROM set to the headset
 
-The six files `disasm\build\starwars_*.bin` go into this folder on the
-headset:
+`starwars.zip` goes, as it is, into this folder on the headset:
 
 ```
 Android/data/com.cyberheater.starwars/files
@@ -307,15 +305,20 @@ Android/data/com.cyberheater.starwars/files
 - **adb:**
 
   ```powershell
-  adb push disasm\build\. /sdcard/Android/data/com.cyberheater.starwars/files/
+  adb push starwars.zip /sdcard/Android/data/com.cyberheater.starwars/files/
   ```
 
 - **SideQuest:** its file browser (the folder icon), go to that folder, and
-  drag the six files in.
+  drag the zip in.
 - **Windows Explorer:** with the headset on USB and "Allow access to data"
   accepted in the headset, open the headset's Internal shared storage and go
   to that folder. Some headset software versions hide `Android/data` here; use
   one of the other two ways if so.
+
+The app looks in every `.zip` in that folder and finds the chips it needs by
+their checksums, whatever the files are called, so nothing has to be unpacked
+or converted and Python is not needed. The first start with the zip there
+writes six `starwars_*.bin` files beside it and uses those from then on.
 
 Start Star Wars again and the game runs. The cable is no longer needed.
 
@@ -328,7 +331,7 @@ is no keyboard, so:
 - **Quit:** the menu's **QUIT** row, or the Meta button and Quit.
 - **Settings:** the menu's sliders are saved automatically. The other options
   of the [settings file](#settings-file) work too: put an `sw_xr.ini` in the
-  folder above, beside the ROM images. `sw_xr.log` and the high scores
+  folder above, beside the ROM set. `sw_xr.log` and the high scores
   (`starwars.nv`) are kept there as well.
 - Taking the headset off pauses the game.
 
@@ -344,7 +347,7 @@ c_src\platform\openxr\android\build_quest.ps1 -Sdk <the SDK> -OpenXR <the unpack
 
 It writes `c_src\StarWarsQuest.apk`, signed with a key of its own that it
 makes on first use. An update only installs over a copy signed with the same
-key; uninstall the old one first otherwise (the ROM images go with it).
+key; uninstall the old one first otherwise (the ROM set goes with it).
 
 ## Troubleshooting
 
@@ -363,6 +366,7 @@ key; uninstall the old one first otherwise (the ROM images go with it).
 | The sight feels slightly behind your hand | That is the original game: it eases the sight toward the yoke rather than jumping. |
 | Everything is too big to take in | Open the menu and lower SIZE. |
 | The build cannot write `sw_xr.exe` | The game is still running. Quit it and build again. |
-| Quest app: the words NO ROMS | The six `starwars_*.bin` files are not in `Android/data/com.cyberheater.starwars/files`. |
+| Quest app: the words NO ROMS | There is no `.zip` in `Android/data/com.cyberheater.starwars/files`. Copy your `starwars.zip` there. |
+| Quest app: the words BAD ROMS | The zip there is not the MAME `starwars` set. `sw_xr.log` in that folder names the chip it could not find. |
 | Quest app: it closes at once | `sw_xr.log` in that folder says why. |
-| Quest app: the update will not install | It was signed with a different key. Uninstall Star Wars from the headset, install again, and copy the ROM images again. |
+| Quest app: the update will not install | It was signed with a different key. Uninstall Star Wars from the headset, install again, and copy the ROM set again. |

@@ -28,26 +28,20 @@ once. The [guide](docs/VR.md#on-the-quest-itself) has every step in detail.
    [SideQuest](https://sidequestvr.com), or run `adb install -r StarWarsQuest.apk`.
 3. **Start it once.** Library, Unknown Sources, Star Wars. It shows **NO ROMS**
    and makes its folder. Quit with the Meta button.
-4. **Make the ROM images** on the PC from your own ROM set. This needs
-   [Python 3](https://www.python.org/downloads/) and `QuestSWVR-rom-tools.zip`
-   from the release page (or the `disasm` folder of this repository):
+4. **Copy your `starwars.zip` to the headset**, as it is, into
 
-   ```powershell
-   python disasm\image.py C:\path\to\starwars.zip
+   ```
+   Android/data/com.cyberheater.starwars/files
    ```
 
-   It lists fourteen chips and writes six `starwars_*.bin` files to
-   `disasm\build`.
-5. **Copy the six files to the headset**, into
-   `Android/data/com.cyberheater.starwars/files`:
+   with SideQuest's file browser, or:
 
    ```powershell
-   adb push disasm\build\. /sdcard/Android/data/com.cyberheater.starwars/files/
+   adb push starwars.zip /sdcard/Android/data/com.cyberheater.starwars/files/
    ```
 
-   or with SideQuest's file browser.
-
-Start Star Wars again and the game runs.
+Start Star Wars again and the game runs: the app finds the chips it needs in
+the zip by itself. Nothing has to be unpacked or converted.
 
 ## Play
 

@@ -109,6 +109,9 @@ typedef struct XrSwapchainImageOpenGLKHR xr_gl_image;
 #include <vector>
 #include "../sw_platform.h"
 #include "../../sw3d.h"
+#ifdef __ANDROID__
+#include "../../romzip.h"
+#endif
 
 #define APP_NAME "Star Wars VR"
 
@@ -415,10 +418,11 @@ static const signed char S_[] = { 4,6, 0,6, 0,3, 4,3, 4,0, 0,0, -1 }, I_[] = { 2
     T_[] = { 0,6, 4,6, -2, 2,6, 2,0, -1 }, H_[] = { 0,0, 0,6, -2, 4,0, 4,6, -2, 0,3, 4,3, -1 },
     A_[] = { 0,0, 0,4, 2,6, 4,4, 4,0, -2, 0,3, 4,3, -1 }, R_[] = { 0,0, 0,6, 4,6, 4,3, 0,3, -2, 2,3, 4,0, -1 },
     N_[] = { 0,0, 0,6, 4,0, 4,6, -1 }, O_[] = { 0,0, 0,6, 4,6, 4,0, 0,0, -1 }, M_[] = { 0,0, 0,6, 2,3, 4,6, 4,0, -1 },
-    Q_[] = { 0,0, 0,6, 4,6, 4,0, 0,0, -2, 2,2, 4,0, -1 }, U_[] = { 0,6, 0,0, 4,0, 4,6, -1 };
+    Q_[] = { 0,0, 0,6, 4,6, 4,0, 0,0, -2, 2,2, 4,0, -1 }, U_[] = { 0,6, 0,0, 4,0, 4,6, -1 },
+    B_[] = { 0,0, 0,6, 3,6, 4,5, 4,4, 3,3, 0,3, -2, 3,3, 4,2, 4,1, 3,0, 0,0, -1 };
 static const struct { char c; const signed char *p; } font[] = {
     { 'S', S_ }, { 'I', I_ }, { 'Z', Z_ }, { 'E', E_ }, { 'D', D_ }, { 'P', P_ }, { 'T', T_ }, { 'H', H_ }, { 'A', A_ },
-    { 'R', R_ }, { 'N', N_ }, { 'O', O_ }, { 'M', M_ }, { 'Q', Q_ }, { 'U', U_ } };
+    { 'R', R_ }, { 'N', N_ }, { 'O', O_ }, { 'M', M_ }, { 'Q', Q_ }, { 'U', U_ }, { 'B', B_ } };
 static const char *notice;              /* a word to show in place of the game: it could not start */
 
 /* The picture's lines as this eye sees them, into the bound framebuffer's
@@ -1583,8 +1587,9 @@ static void settings_load(void)
 
 #ifdef __ANDROID__
 /* In the headset: the activity's own thread.  The folder Android gives the
- * app on shared storage (Android/data/<package>/files) holds the ROM images,
- * sw_xr.ini, sw_xr.log and starwars.nv. */
+ * app on shared storage (Android/data/<package>/files) holds the ROM set
+ * (starwars.zip, as it is; romzip.cpp makes the images from it), sw_xr.ini,
+ * sw_xr.log and starwars.nv. */
 static int app_gone;
 
 static void app_cmd(struct android_app *, int32_t cmd)
@@ -1637,9 +1642,13 @@ void android_main(struct android_app *app)
             o.rom_dir = path_roms.c_str();
             o.pokey_volume = ini_int("sound", "pokey_volume", 100);
             o.speech_volume = ini_int("sound", "speech_volume", 100);
+            /* the ROM set as it is, a .zip put in the folder: its images are made here, once */
+            char why[200];
+            const int zip = sw_rom_images_from_zips(path_roms.c_str(), why, sizeof why);
+            if (zip == SW_ROMZIP_BAD) logf("ROM set: %s", why);
             logf("machine: %s, ROM revision %d, images in %s", sw_app_name(), o.rev, path_roms.c_str());
             if (sw_app_init(&o) == 0) machine = 1;
-            else { logf("%s", sw_app_error()); notice = "NO ROMS"; }
+            else { logf("%s", sw_app_error()); notice = zip == SW_ROMZIP_BAD ? "BAD ROMS" : "NO ROMS"; }
         }
     }
 
