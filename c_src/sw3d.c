@@ -158,6 +158,10 @@ static int sprite_writer(uint16_t ck, uint16_t dck)
  * world that is where it is; over a page of text it stays on the tube. */
 static int sight_writer(uint16_t ck) { return ck == 0xB6CC; }
 
+static float star_depth;
+void sw3d_star_depth(float depth) { star_depth = depth; }
+static int star_writer(uint16_t ck) { return ck == CK_VWSTAR_DRAW || ck == CK_VWSTRG_DRAW; }
+
 static void unproject(sw3d_out *o, float x, float sx, float sy)
 {
     o->layer = SW3D_WORLD;
@@ -189,6 +193,7 @@ void sw3d_resolve(const avg_point *pts, uint32_t n, const float *sx, const float
         } else if ((p->p3_valid == 3 || p->p3_valid == 4) && p3x > 0 && sprite_writer(p->p3_ck, p->p3_dck)) {
             unproject(o, p3x, sx[i], sy[i]);
         }
+        if (o->layer == SW3D_WORLD && star_depth > 0 && star_writer(p->p3_ck)) unproject(o, star_depth, sx[i], sy[i]);
         if (o->layer == SW3D_WORLD) n_world++;
     }
     if (n_world)

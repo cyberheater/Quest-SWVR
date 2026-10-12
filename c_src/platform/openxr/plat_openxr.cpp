@@ -68,6 +68,7 @@
 #include <string>
 #include <vector>
 #include "../sw_platform.h"
+#include "../../sw3d.h"
 
 #define APP_NAME "Star Wars VR"
 
@@ -145,7 +146,7 @@ static std::string nv_override, script_path, romdir_cli;
 static float unit_metres = 0.005f;    /* one of the game's units */
 static float hud_distance = 3.0f;     /* the HUD panel, metres ahead */
 static float hud_scale = 1.0f;        /* 1: the HUD covers the world as on the tube */
-static float view_scale = 0.75f;      /* the whole picture's size to the eye; 1: the tube's own 90 degrees across */
+static float view_scale = 0.675f;     /* the whole picture's size to the eye; 1: the tube's own 90 degrees across */
 enum { AIM_FLIGHT, AIM_YOKE, AIM_POINT, AIM_STICK, AIM_N };
 static const char *const aim_names[] = { "flight", "yoke", "point", "stick" };
 static int   aim_mode = AIM_FLIGHT;   /* what the controllers' poses do */
@@ -1161,6 +1162,8 @@ int main(int argc, char **argv)
     hud_distance = (float)ini_dbl("vr", "hud_distance", hud_distance);
     hud_scale = (float)ini_dbl("vr", "hud_scale", hud_scale);
     view_scale = (float)ini_dbl("vr", "view_scale", view_scale);
+    /* the stars as a sky behind the ships (0: among them, as the game has them) */
+    sw3d_star_depth((float)ini_dbl("vr", "star_depth", 65536.0));
     aim_range = (float)ini_dbl("vr", "aim_range", aim_range);
     yoke_turn = (float)ini_dbl("vr", "yoke_turn", yoke_turn);
     yoke_lift = (float)ini_dbl("vr", "yoke_lift", yoke_lift);

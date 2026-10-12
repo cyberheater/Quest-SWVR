@@ -48,6 +48,11 @@ typedef struct {
  * one per point.  The line drawn to point i starts at point i-1. */
 void sw3d_resolve(const avg_point *pts, uint32_t n, const float *sx, const float *sy, sw3d_out *out);
 
+/* The game flies through its stars: they are as near as the ships.  A host
+ * that wants a sky behind everything gives a depth here, and the resolver
+ * puts each star at that depth where the tube shows it; 0 is the game's own. */
+void sw3d_star_depth(float depth);
+
 #ifdef __cplusplus
 }
 #endif
