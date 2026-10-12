@@ -58,7 +58,7 @@ Pick a folder to work in. These instructions use `C:\SW3D`.
 ```powershell
 mkdir C:\SW3D
 cd C:\SW3D
-git clone --branch 3d-tap https://github.com/cyberheater/Star-Wars-Full-Disassembly-and-C-Port swc
+git clone https://github.com/cyberheater/Quest-SWVR swc
 ```
 
 ### 3. Get the two libraries (SDL2 and the OpenXR loader)

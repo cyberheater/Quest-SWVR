@@ -90,7 +90,7 @@ writes `c_src\StarWarsQuest.apk`.
 ## Where it comes from
 
 This repository is the Quest side of
-[Star Wars 1983 Arcade PCVR and Quest port](https://github.com/cyberheater/Star-Wars-Full-Disassembly-and-C-Port),
+[Star Wars Arcade PCVR](https://github.com/cyberheater/Star-Wars-Arcade-PCVR),
 which also has the Windows PC VR version (`sw_xr.exe`) and the game in a
 desktop window. Both are built on the
 [Star Wars full disassembly and C port](https://github.com/tcottrill/Star-Wars-Full-Disassembly-and-C-Port):
