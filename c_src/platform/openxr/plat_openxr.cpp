@@ -11,13 +11,20 @@
  *
  * The cockpit: the game's camera is where the head was when the view was last
  * centred (at the start, and on Home / B / Y), looking the way the head faced.
- * A point (x ahead, y right, z up) of the game is unit_metres * (y, z, -x) in
- * front of it.  The HUD - scores, messages, the sight, the cockpit - is drawn
+ * A point (x ahead, y right, z up) of the game is unit_metres * (y, TUBE_ASPECT
+ * * z, -x) in front of it: the tube shows the game's 250 by 280 window on a
+ * 4:3 screen, so what the game draws is that much flatter than its numbers,
+ * and round things (the Death Star) are drawn for it.  The HUD - scores, messages, the sight, the cockpit - is drawn
  * on a panel hud_distance ahead, at the size at which a point of it covers
  * the world exactly as it does on the tube, so the sight stays on what the
  * guns hit.
  *
- * Controls in the headset (Touch controllers): the two controllers are the
+ * Controls in the headset (Touch controllers): the right controller is a
+ * flight stick.  Held as it was when the view was last centred it is the
+ * stick at rest; pushed or tipped forward it dives, pulled or tipped back it
+ * climbs, and moved or leaned to a side it goes to that side.  F9 (or [vr]
+ * aim) steps on to the other ways: yoke, point and stick.
+ * As a yoke, the two controllers are the
  * yoke's two handles.  Held level side by side they are the yoke at rest;
  * turned like a steering wheel (one hand up, the other down) they are the
  * yoke turned, and both raised or lowered they are its handles tilted: up
@@ -137,9 +144,12 @@ static std::string nv_override, script_path, romdir_cli;
 static float unit_metres = 0.02f;     /* one of the game's units */
 static float hud_distance = 3.0f;     /* the HUD panel, metres ahead */
 static float hud_scale = 1.0f;        /* 1: the HUD covers the world as on the tube */
-enum { AIM_YOKE, AIM_POINT, AIM_STICK };
-static const char *const aim_names[] = { "yoke", "point", "stick" };
-static int   aim_mode = AIM_YOKE;     /* what the controllers' poses do */
+enum { AIM_FLIGHT, AIM_YOKE, AIM_POINT, AIM_STICK, AIM_N };
+static const char *const aim_names[] = { "flight", "yoke", "point", "stick" };
+static int   aim_mode = AIM_FLIGHT;   /* what the controllers' poses do */
+static int   flight_hand = 1;         /* flight: the hand on the stick, 0 left, 1 right */
+static float flight_tilt = 30.0f;     /* flight: degrees the stick tips, and metres its top moves, */
+static float flight_reach = 0.12f;    /*   for its full travel (0: that one is not used) */
 static float aim_range = 30.0f;       /* point: degrees off straight ahead for the yoke's full travel */
 static float yoke_turn = 40.0f;       /* yoke: degrees of turn for its full travel */
 static float yoke_lift = 0.15f;       /* yoke: metres the hands rise or fall for its full travel */
@@ -282,12 +292,16 @@ struct eye_xf {
     int   w, h;
 };
 
+/* The tube shows the vector generator's 250 by 280 window on a 4:3 screen: a
+ * unit up the screen is this much of a unit across it. */
+#define TUBE_ASPECT ((250.0f / 4.0f) / (280.0f / 3.0f))
+
 /* The cockpit's own camera: the tube's window on the world, exactly. */
 static eye_xf tube_eye(int w, int h)
 {
     eye_xf E = { { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } }, { 0, 0, 0 },
                  -SW_PROJ_X0 / SW_PROJ_XK, (250.0f - SW_PROJ_X0) / SW_PROJ_XK,
-                 SW_PROJ_Y0 / SW_PROJ_YK, -(280.0f - SW_PROJ_Y0) / SW_PROJ_YK, w, h };
+                 TUBE_ASPECT * SW_PROJ_Y0 / SW_PROJ_YK, -TUBE_ASPECT * (280.0f - SW_PROJ_Y0) / SW_PROJ_YK, w, h };
     return E;
 }
 
@@ -346,12 +360,12 @@ static void draw_eye(const eye_xf &E)
         }
     };
 
-    const float S = unit_metres;
+    const float S = unit_metres, SZ = unit_metres * TUBE_ASPECT;
     for (auto &s : shown3) {
-        float a[3] = { s.a[1] * S, s.a[2] * S, -s.a[0] * S }, b[3] = { s.b[1] * S, s.b[2] * S, -s.b[0] * S };
+        float a[3] = { s.a[1] * S, s.a[2] * SZ, -s.a[0] * S }, b[3] = { s.b[1] * S, s.b[2] * SZ, -s.b[0] * S };
         line(a, b, s.rgb, s.in);
     }
-    const float D = hud_distance, kx = hud_scale * D / SW_PROJ_XK, ky = hud_scale * D / SW_PROJ_YK;
+    const float D = hud_distance, kx = hud_scale * D / SW_PROJ_XK, ky = hud_scale * D * TUBE_ASPECT / SW_PROJ_YK;
     for (auto &s : shown) {
         float a[3] = { (s.x0 - SW_PROJ_X0) * kx, (SW_PROJ_Y0 - s.y0) * ky, -D };
         float b[3] = { (s.x1 - SW_PROJ_X0) * kx, (SW_PROJ_Y0 - s.y1) * ky, -D };
@@ -435,10 +449,12 @@ static struct {
     int   coin, centre;
     int   hand_ok[2];                   /* left, right: pointing and placed */
     float hand_yaw[2], hand_pitch[2];   /* where each points, degrees: right, up, in the cockpit */
+    float hand_roll[2];                 /* how far each leans over to the right, degrees */
     float hand_pos[2][3];               /* where each is, the cockpit's axes */
 } xin;
 static int   yoke_rest_request = 1;     /* take the handles' height now as the yoke's rest */
 static float yoke_rest;
+static struct { float pitch, roll, pos[3]; } flight_rest;      /* and the stick as it is held now */
 
 /* where the cockpit is in the room: the game's camera, and the way it faces */
 static int   centred, centre_request;
@@ -700,6 +716,10 @@ static void xr_input(XrTime when)
         xin.hand_ok[h] = 1;
         xin.hand_yaw[h] = atan2f(c[0], -c[2]) * 57.29578f;
         xin.hand_pitch[h] = atan2f(c[1], sqrtf(c[0] * c[0] + c[2] * c[2])) * 57.29578f;
+        const float side[3] = { 1, 0, 0 };
+        q_rotate(loc.pose.orientation, side, r);
+        room_to_cockpit(r, c);
+        xin.hand_roll[h] = atan2f(-c[1], sqrtf(c[0] * c[0] + c[2] * c[2])) * 57.29578f;
         room_to_cockpit(at, xin.hand_pos[h]);
     }
 }
@@ -863,7 +883,7 @@ static void pump_events(void)
             case SDL_SCANCODE_F4: sndtest_latch = !sndtest_latch; break;
             case SDL_SCANCODE_F8: set_capture(!mouse_captured); break;
             case SDL_SCANCODE_F9:
-                aim_mode = (aim_mode + 1) % 3;
+                aim_mode = (aim_mode + 1) % AIM_N;
                 yoke_rest_request = 1;
                 logf("[vr] aim=%s", aim_names[aim_mode]);
                 break;
@@ -966,7 +986,26 @@ void plat_input_poll(plat_inputs *in)
     {
         const float dz = 0.12f;
         float sx = fabsf(xin.stick_x) < dz ? 0.0f : xin.stick_x, sy = fabsf(xin.stick_y) < dz ? 0.0f : xin.stick_y;
-        if (aim_mode == AIM_POINT && xin.hand_ok[1]) {
+        if (aim_mode == AIM_FLIGHT && xin.hand_ok[flight_hand]) {
+            /* a flight stick in the hand: how far it tips from how it was
+             * held at rest, and how far its top has moved from there */
+            const int h = flight_hand;
+            const float *at = xin.hand_pos[h];
+            if (yoke_rest_request) {
+                flight_rest.pitch = xin.hand_pitch[h];
+                flight_rest.roll = xin.hand_roll[h];
+                memcpy(flight_rest.pos, at, sizeof flight_rest.pos);
+                yoke_rest_request = 0;
+            }
+            if (flight_tilt > 0.0f) {
+                sx += (xin.hand_roll[h] - flight_rest.roll) / flight_tilt;
+                sy += (xin.hand_pitch[h] - flight_rest.pitch) / flight_tilt;       /* tipped back: up */
+            }
+            if (flight_reach > 0.0f) {
+                sx += (at[0] - flight_rest.pos[0]) / flight_reach;
+                sy += (at[2] - flight_rest.pos[2]) / flight_reach;                 /* pulled back: up */
+            }
+        } else if (aim_mode == AIM_POINT && xin.hand_ok[1]) {
             sx = xin.hand_yaw[1] / aim_range;
             sy = xin.hand_pitch[1] / aim_range;
         } else if (aim_mode == AIM_YOKE && xin.hand_ok[0] && xin.hand_ok[1]) {
@@ -1117,7 +1156,10 @@ int main(int argc, char **argv)
     yoke_turn = (float)ini_dbl("vr", "yoke_turn", yoke_turn);
     yoke_lift = (float)ini_dbl("vr", "yoke_lift", yoke_lift);
     if (const char *a = ini_get("vr", "aim"))
-        for (int k = 0; k < 3; k++) if (!strcmp(a, aim_names[k])) aim_mode = k;
+        for (int k = 0; k < AIM_N; k++) if (!strcmp(a, aim_names[k])) aim_mode = k;
+    flight_tilt = (float)ini_dbl("vr", "flight_tilt", flight_tilt);
+    flight_reach = (float)ini_dbl("vr", "flight_reach", flight_reach);
+    if (const char *a = ini_get("vr", "flight_hand")) flight_hand = strcmp(a, "left") ? 1 : 0;
 
     const int headless = turbo || hidden_mode;
     Uint32 sdl_flags = SDL_INIT_TIMER | SDL_INIT_EVENTS;
