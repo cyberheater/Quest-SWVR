@@ -24,8 +24,10 @@ endif()
 # space.  It only watches; off, the build is the plain port.
 option(SW_3D "Build the 3-D tap" ON)
 
-find_package(SDL2 REQUIRED)
-find_package(OpenGL REQUIRED)
+if(NOT ANDROID)
+    find_package(SDL2 REQUIRED)
+    find_package(OpenGL REQUIRED)
+endif()
 
 file(GLOB GEN_SRC     ${CMAKE_CURRENT_SOURCE_DIR}/gen/*.c ${CMAKE_CURRENT_SOURCE_DIR}/hand/*.c)
 file(GLOB GEN_SND_SRC ${CMAKE_CURRENT_SOURCE_DIR}/gen_snd/*.c)
@@ -37,6 +39,30 @@ target_include_directories(sw_main_prog PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(sw_snd_prog STATIC ${GEN_SND_SRC} platform/sdl/sw_rt_snd.c)
 target_include_directories(sw_snd_prog PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# In the headset itself (a Quest, which is Android): libstarwars.so, the
+# NativeActivity of platform/openxr/android/AndroidManifest.xml, from the same
+# plat_openxr.cpp on OpenGL ES.  Configure with the NDK's toolchain file and
+# -DOPENXR_ANDROID=<the unpacked org.khronos.openxr:openxr_loader_for_android
+# .aar>; platform/openxr/android/build_quest.ps1 does all of it, to an .apk.
+if(ANDROID)
+    set(OPENXR_ANDROID "" CACHE PATH "The unpacked openxr_loader_for_android .aar")
+    set(GLUE ${ANDROID_NDK}/sources/android/native_app_glue)
+    add_library(openxr_loader SHARED IMPORTED)
+    set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION
+        ${OPENXR_ANDROID}/prefab/modules/openxr_loader/libs/android.${ANDROID_ABI}/libopenxr_loader.so)
+    add_library(starwars SHARED
+        platform/openxr/plat_openxr.cpp ${GLUE}/android_native_app_glue.c
+        hw.cpp app.cpp port.cpp sw3d.c
+        avg.c mathbox.c x2212.c riot6532.c c012294.c tms5220.cpp)
+    target_include_directories(starwars PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR} ${GLUE} ${OPENXR_ANDROID}/prefab/modules/headers/include)
+    target_compile_definitions(sw_main_prog PUBLIC SW_3D)
+    target_compile_definitions(sw_snd_prog PUBLIC SW_3D)
+    target_compile_definitions(starwars PRIVATE SW_3D)
+    target_link_libraries(starwars PRIVATE sw_main_prog sw_snd_prog openxr_loader android log EGL GLESv3 aaudio)
+    return()
+endif()
 
 add_executable(sw_sdl
     platform/sdl/plat_sdl.cpp

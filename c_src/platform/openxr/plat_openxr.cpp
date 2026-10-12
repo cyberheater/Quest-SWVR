@@ -60,9 +60,26 @@
  * starwars.nv; the ROM images are read from <exe>/../disasm/build unless
  * [main] rom_dir or --romdir say otherwise.
  */
-#ifndef _WIN32
-#error "plat_openxr.cpp: the OpenGL session binding here is the Win32 one"
-#endif
+#if defined(__ANDROID__)
+/* In the headset itself (a Quest): OpenGL ES through EGL, no window, the
+ * sound through AAudio, and the activity's thread as the main loop. */
+#include <jni.h>
+#include <EGL/egl.h>
+#include <GLES3/gl3.h>
+#include <aaudio/AAudio.h>
+#include <android/log.h>
+#include <android_native_app_glue.h>
+#include <time.h>
+#include <unistd.h>
+#include <atomic>
+#define XR_USE_PLATFORM_ANDROID
+#define XR_USE_GRAPHICS_API_OPENGL_ES
+#define GL_FRAMEBUFFER_SRGB 0x8DB9      /* EXT_sRGB_write_control */
+#define GLSL_HEAD "#version 300 es\nprecision highp float;\n"
+#define XR_GL_EXT XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME
+typedef struct XrSwapchainImageOpenGLESKHR xr_gl_image;
+#define XR_GL_IMAGE_TYPE XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR
+#elif defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -72,6 +89,13 @@
 #include <SDL.h>
 #define XR_USE_PLATFORM_WIN32
 #define XR_USE_GRAPHICS_API_OPENGL
+#define GLSL_HEAD "#version 150\n"
+#define XR_GL_EXT XR_KHR_OPENGL_ENABLE_EXTENSION_NAME
+typedef struct XrSwapchainImageOpenGLKHR xr_gl_image;
+#define XR_GL_IMAGE_TYPE XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR
+#else
+#error "plat_openxr.cpp: Windows (OpenGL) or Android (OpenGL ES)"
+#endif
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 #include <algorithm>
@@ -101,7 +125,11 @@ static void logf(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(s, sizeof s, fmt, ap);
     va_end(ap);
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "StarWars", "%s", s);
+#else
     fprintf(stderr, "%s\n", s);
+#endif
     if (log_file) { fprintf(log_file, "%s\n", s); fflush(log_file); }
 }
 
@@ -249,8 +277,16 @@ uint8_t plat_dsw1(void) { return dsw1; }
 /* video: the picture, kept as the machine sent it                     */
 /* ------------------------------------------------------------------ */
 
+#ifdef __ANDROID__
+static struct android_app *g_app;
+static EGLDisplay egl_dpy;
+static EGLConfig  egl_cfg;
+static EGLContext egl_ctx;
+static EGLSurface egl_surf;
+#else
 static SDL_Window   *win;
 static SDL_GLContext glctx;
+#endif
 static GLuint prog, vao, vbo, fbo;
 static float  brightness = 1.6f, linewidth = 2.0f;
 
@@ -262,12 +298,12 @@ static int present_pending;
 static unsigned long n_pictures;
 
 static const char *VS =
-    "#version 150\n"
+    GLSL_HEAD
     "in vec2 pos; in vec2 edge; in vec4 col;\n"
     "out vec2 v_edge; out vec4 v_col;\n"
     "void main() { v_edge = edge; v_col = col; gl_Position = vec4(pos, 0.0, 1.0); }\n";
 static const char *FS =
-    "#version 150\n"
+    GLSL_HEAD
     "in vec2 v_edge; in vec4 v_col; out vec4 o;\n"
     "void main() {\n"
     "  float d = length(v_edge);\n"
@@ -293,9 +329,11 @@ static GLuint compile(GLenum type, const char *src)
 
 static int gl_init(void)
 {
+#ifndef __ANDROID__
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) { logf("OpenGL: the functions could not be loaded"); return 1; }
     while (glGetError() != GL_NO_ERROR) { }
+#endif
     prog = glCreateProgram();
     glAttachShader(prog, compile(GL_VERTEX_SHADER, VS));
     glAttachShader(prog, compile(GL_FRAGMENT_SHADER, FS));
@@ -368,6 +406,18 @@ static eye_xf tube_eye(int w, int h)
 }
 
 static std::vector<float> verts;
+
+/* letters on a 4 by 6 grid: -2 lifts the pen, -1 ends */
+static const signed char S_[] = { 4,6, 0,6, 0,3, 4,3, 4,0, 0,0, -1 }, I_[] = { 2,0, 2,6, -1 },
+    Z_[] = { 0,6, 4,6, 0,0, 4,0, -1 }, E_[] = { 4,6, 0,6, 0,0, 4,0, -2, 0,3, 3,3, -1 },
+    D_[] = { 0,0, 0,6, 3,6, 4,5, 4,1, 3,0, 0,0, -1 }, P_[] = { 0,0, 0,6, 4,6, 4,3, 0,3, -1 },
+    T_[] = { 0,6, 4,6, -2, 2,6, 2,0, -1 }, H_[] = { 0,0, 0,6, -2, 4,0, 4,6, -2, 0,3, 4,3, -1 },
+    A_[] = { 0,0, 0,4, 2,6, 4,4, 4,0, -2, 0,3, 4,3, -1 }, R_[] = { 0,0, 0,6, 4,6, 4,3, 0,3, -2, 2,3, 4,0, -1 },
+    N_[] = { 0,0, 0,6, 4,0, 4,6, -1 }, O_[] = { 0,0, 0,6, 4,6, 4,0, 0,0, -1 }, M_[] = { 0,0, 0,6, 2,3, 4,6, 4,0, -1 };
+static const struct { char c; const signed char *p; } font[] = {
+    { 'S', S_ }, { 'I', I_ }, { 'Z', Z_ }, { 'E', E_ }, { 'D', D_ }, { 'P', P_ }, { 'T', T_ }, { 'H', H_ }, { 'A', A_ },
+    { 'R', R_ }, { 'N', N_ }, { 'O', O_ }, { 'M', M_ } };
+static const char *notice;              /* a word to show in place of the game: it could not start */
 
 /* The picture's lines as this eye sees them, into the bound framebuffer's
  * (0, 0, E.w, E.h). */
@@ -448,14 +498,6 @@ static void draw_eye(const eye_xf &E)
         gain = 1.0f;
         const float Z = -2.0f, W = 0.40f, u = 0.010f;
         const uint32_t white = 0xFFFFFFFFu, yellow = 0xFF00FFFFu;
-        /* letters on a 4 by 6 grid: -2 lifts the pen, -1 ends */
-        static const signed char S_[] = { 4,6, 0,6, 0,3, 4,3, 4,0, 0,0, -1 }, I_[] = { 2,0, 2,6, -1 },
-            Z_[] = { 0,6, 4,6, 0,0, 4,0, -1 }, E_[] = { 4,6, 0,6, 0,0, 4,0, -2, 0,3, 3,3, -1 },
-            D_[] = { 0,0, 0,6, 3,6, 4,5, 4,1, 3,0, 0,0, -1 }, P_[] = { 0,0, 0,6, 4,6, 4,3, 0,3, -1 },
-            T_[] = { 0,6, 4,6, -2, 2,6, 2,0, -1 }, H_[] = { 0,0, 0,6, -2, 4,0, 4,6, -2, 0,3, 4,3, -1 },
-            A_[] = { 0,0, 0,4, 2,6, 4,4, 4,0, -2, 0,3, 4,3, -1 }, R_[] = { 0,0, 0,6, 4,6, 4,3, 0,3, -2, 2,3, 4,0, -1 };
-        static const struct { char c; const signed char *p; } font[] = {
-            { 'S', S_ }, { 'I', I_ }, { 'Z', Z_ }, { 'E', E_ }, { 'D', D_ }, { 'P', P_ }, { 'T', T_ }, { 'H', H_ }, { 'A', A_ }, { 'R', R_ } };
         static const char *const names[MENU_N] = { "SIZE", "DEPTH", "STARS" };
         for (int row = 0; row < MENU_N; row++) {
             const float Y0 = -0.18f - 0.14f * (float)row;
@@ -485,6 +527,21 @@ static void draw_eye(const eye_xf &E)
         }
     }
 
+    if (notice) {
+        const float Z = -2.0f, u = 0.03f;
+        float x = -(float)strlen(notice) * 6.0f * u * 0.5f;
+        gain = 1.0f;
+        for (const char *c = notice; *c; c++, x += 6.0f * u)
+            for (auto &f : font) {
+                if (f.c != *c) continue;
+                for (const signed char *q = f.p; q[2] != -1; q += 2) {
+                    if (q[2] == -2) { q++; continue; }
+                    float a[3] = { x + q[0] * u, (q[1] - 3) * u, Z }, b[3] = { x + q[2] * u, (q[3] - 3) * u, Z };
+                    line(a, b, 0xFFFFFFFFu, 220);
+                }
+            }
+    }
+
     glViewport(0, 0, E.w, E.h);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
@@ -500,6 +557,7 @@ static void draw_eye(const eye_xf &E)
     glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(verts.size() / 8));
 }
 
+#ifndef __ANDROID__
 /* the largest 4:3 (or w:h) rectangle in the window */
 static void fit(int dw, int dh, int w, int h, int *x, int *y, int *vw, int *vh)
 {
@@ -540,6 +598,7 @@ static void draw_flat(void)
     SDL_GL_SwapWindow(win);
 }
 
+#endif
 /* ------------------------------------------------------------------ */
 /* the headset                                                         */
 /* ------------------------------------------------------------------ */
@@ -551,7 +610,7 @@ static XrSpace    xr_local, xr_hand_space[2];     /* left, right */
 static XrPath     xr_hand_path[2];
 static int        xr_running, xr_focused;
 static XrViewConfigurationView xr_vcv[2];
-struct eye_chain { XrSwapchain sc; int w, h; std::vector<XrSwapchainImageOpenGLKHR> img; };
+struct eye_chain { XrSwapchain sc; int w, h; std::vector<xr_gl_image> img; };
 static eye_chain  xr_eye[2];
 static XrActionSet xr_set;
 static XrAction    act_yoke, act_fire_r, act_fire_l, act_thumb_r, act_thumb_l, act_coin, act_centre, act_aim, act_menu;
@@ -667,15 +726,23 @@ static int xr_open(void)
     if (xr_bad(xrEnumerateInstanceExtensionProperties(nullptr, 0, &n, nullptr), "no OpenXR runtime")) return 1;
     std::vector<XrExtensionProperties> ext(n, { XR_TYPE_EXTENSION_PROPERTIES });
     xrEnumerateInstanceExtensionProperties(nullptr, n, &n, ext.data());
-    for (auto &e : ext) if (!strcmp(e.extensionName, XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)) have_gl = 1;
-    if (!have_gl) { logf("OpenXR: the runtime does not take OpenGL (XR_KHR_opengl_enable)"); return 1; }
+    for (auto &e : ext) if (!strcmp(e.extensionName, XR_GL_EXT)) have_gl = 1;
+    if (!have_gl) { logf("OpenXR: the runtime does not take OpenGL (%s)", XR_GL_EXT); return 1; }
 
-    const char *exts[] = { XR_KHR_OPENGL_ENABLE_EXTENSION_NAME };
     XrInstanceCreateInfo ci = { XR_TYPE_INSTANCE_CREATE_INFO };
+#ifdef __ANDROID__
+    const char *exts[] = { XR_GL_EXT, XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME };
+    XrInstanceCreateInfoAndroidKHR ia = { XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR };
+    ia.applicationVM = g_app->activity->vm;
+    ia.applicationActivity = g_app->activity->clazz;
+    ci.next = &ia;
+#else
+    const char *exts[] = { XR_GL_EXT };
+#endif
     snprintf(ci.applicationInfo.applicationName, sizeof ci.applicationInfo.applicationName, "Star Wars");
     ci.applicationInfo.applicationVersion = 1;
     ci.applicationInfo.apiVersion = XR_MAKE_VERSION(1, 0, 0);
-    ci.enabledExtensionCount = 1;
+    ci.enabledExtensionCount = (uint32_t)(sizeof exts / sizeof exts[0]);
     ci.enabledExtensionNames = exts;
     if (xr_bad(xrCreateInstance(&ci, &xr_inst), "xrCreateInstance")) return 1;
     XrInstanceProperties ip = { XR_TYPE_INSTANCE_PROPERTIES };
@@ -693,6 +760,7 @@ static int xr_open(void)
 
 static int xr_init(void)
 {
+#ifndef __ANDROID__
     /* Which runtime: the one that has a headset.  A Quest is one runtime's
      * headset over Quest Link and another's over Virtual Desktop, whichever
      * the system calls active, so each is tried in turn: XR_RUNTIME_JSON if
@@ -722,8 +790,21 @@ static int xr_init(void)
         }
         if (!found) return 1;
     }
+#else
+    /* the loader has to be told of the activity before anything else */
+    {
+        PFN_xrInitializeLoaderKHR init = nullptr;
+        xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction *)&init);
+        XrLoaderInitInfoAndroidKHR li = { XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR };
+        li.applicationVM = g_app->activity->vm;
+        li.applicationContext = g_app->activity->clazz;
+        if (!init || xr_bad(init((const XrLoaderInitInfoBaseHeaderKHR *)&li), "xrInitializeLoaderKHR")) return 1;
+        if (xr_open()) return 1;
+    }
+#endif
     uint32_t n = 0;
 
+#ifndef __ANDROID__
     /* the runtime insists on being asked, and the loader does not export an extension's functions */
     XrGraphicsRequirementsOpenGLKHR req = { XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR };
     PFN_xrGetOpenGLGraphicsRequirementsKHR get_req = nullptr;
@@ -734,6 +815,18 @@ static int xr_init(void)
     XrGraphicsBindingOpenGLWin32KHR gb = { XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR };
     gb.hDC = wglGetCurrentDC();
     gb.hGLRC = wglGetCurrentContext();
+#else
+    XrGraphicsRequirementsOpenGLESKHR req = { XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR };
+    PFN_xrGetOpenGLESGraphicsRequirementsKHR get_req = nullptr;
+    if (xr_bad(xrGetInstanceProcAddr(xr_inst, "xrGetOpenGLESGraphicsRequirementsKHR", (PFN_xrVoidFunction *)&get_req),
+               "xrGetOpenGLESGraphicsRequirementsKHR") || !get_req) return 1;
+    if (xr_bad(get_req(xr_inst, xr_sys, &req), "OpenGL ES requirements")) return 1;
+
+    XrGraphicsBindingOpenGLESAndroidKHR gb = { XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR };
+    gb.display = egl_dpy;
+    gb.config = egl_cfg;
+    gb.context = egl_ctx;
+#endif
     XrSessionCreateInfo sci = { XR_TYPE_SESSION_CREATE_INFO };
     sci.next = &gb;
     sci.systemId = xr_sys;
@@ -769,7 +862,7 @@ static int xr_init(void)
         xr_eye[e].w = (int)sc.width;
         xr_eye[e].h = (int)sc.height;
         xrEnumerateSwapchainImages(xr_eye[e].sc, 0, &n, nullptr);
-        xr_eye[e].img.assign(n, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR });
+        xr_eye[e].img.assign(n, { XR_GL_IMAGE_TYPE });
         if (xr_bad(xrEnumerateSwapchainImages(xr_eye[e].sc, n, &n, (XrSwapchainImageBaseHeader *)xr_eye[e].img.data()),
                    "swapchain images")) return 1;
     }
@@ -950,6 +1043,7 @@ static void xr_frame(void)
                 glBindFramebuffer(GL_FRAMEBUFFER, fbo);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, xr_eye[e].img[idx].image, 0);
                 draw_eye(E);
+#ifndef __ANDROID__
                 if (e == 0 && win) {
                     int dw, dh, x, y, vw, vh;
                     SDL_GL_GetDrawableSize(win, &dw, &dh);
@@ -959,6 +1053,7 @@ static void xr_frame(void)
                     glClear(GL_COLOR_BUFFER_BIT);
                     glBlitFramebuffer(0, 0, E.w, E.h, x, y, x + vw, y + vh, GL_COLOR_BUFFER_BIT, GL_LINEAR);
                 }
+#endif
                 glBindFramebuffer(GL_FRAMEBUFFER, fbo);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -984,7 +1079,9 @@ static void xr_frame(void)
         ei.layers = layers;
     }
     xrEndFrame(xr_sess, &ei);
+#ifndef __ANDROID__
     if (drawn && win) SDL_GL_SwapWindow(win);
+#endif
 }
 
 static void xr_exit(void)
@@ -1003,6 +1100,7 @@ static double yoke_x = 128.0, yoke_y = 128.0, key_x, key_y, input_last_ms;
 static double mouse_sens = 0.25, key_rate = 400.0;
 static int invert_pitch, mouse_b;
 static int mickey_x, mickey_y;
+#ifndef __ANDROID__
 static SDL_GameController *pad;
 
 static void set_capture(int on)
@@ -1070,6 +1168,7 @@ static void pump_events(void)
     }
 }
 
+#endif
 /* What the menu's sliders stand for. */
 static void menu_apply(void)
 {
@@ -1139,6 +1238,7 @@ void plat_input_poll(plat_inputs *in)
     if (dt > 100.0) dt = 100.0;
     input_last_ms = now;
 
+#ifndef __ANDROID__
     const Uint8 *k = SDL_GetKeyboardState(nullptr);
     yoke_x += mickey_x * mouse_sens;
     yoke_y += mickey_y * mouse_sens * (invert_pitch ? -1.0 : 1.0);
@@ -1191,6 +1291,9 @@ void plat_input_poll(plat_inputs *in)
         if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_BACK)) in->coin_l = 1;
     }
 
+#else
+    double x = 128.0, y = 128.0;
+#endif
     /* the Touch controllers: up is the sight up (the pot's high end), the
      * other way from the mouse and the arrow keys, which are a yoke pushed */
     {
@@ -1275,6 +1378,7 @@ void plat_input_poll(plat_inputs *in)
 /* audio, time, storage                                                */
 /* ------------------------------------------------------------------ */
 
+#ifndef __ANDROID__
 static SDL_AudioDeviceID audio_dev;
 static int volume = 100;
 
@@ -1343,6 +1447,67 @@ double plat_now_ms(void)
     return (double)SDL_GetPerformanceCounter() * 1000.0 / (double)freq;
 }
 
+#else
+/* One mono stream; the machine's samples wait in a ring for AAudio's own
+ * thread to take them. */
+static AAudioStream *audio_dev;
+static int volume = 100;
+#define RING 16384
+static int16_t ring[RING];
+static std::atomic<uint32_t> ring_w, ring_r;
+
+static aaudio_data_callback_result_t audio_take(AAudioStream *, void *, void *data, int32_t frames)
+{
+    int16_t *o = (int16_t *)data;
+    uint32_t r = ring_r.load(std::memory_order_relaxed);
+    const uint32_t w = ring_w.load(std::memory_order_acquire);
+    for (int32_t i = 0; i < frames; i++) o[i] = r != w ? ring[r++ & (RING - 1)] : 0;
+    ring_r.store(r, std::memory_order_release);
+    return AAUDIO_CALLBACK_RESULT_CONTINUE;
+}
+
+int plat_audio_open(int sample_rate)
+{
+    if (volume <= 0) return -1;
+    AAudioStreamBuilder *b = nullptr;
+    if (AAudio_createStreamBuilder(&b) != AAUDIO_OK) { logf("audio: no stream builder; no sound"); return -1; }
+    AAudioStreamBuilder_setFormat(b, AAUDIO_FORMAT_PCM_I16);
+    AAudioStreamBuilder_setChannelCount(b, 1);
+    AAudioStreamBuilder_setSampleRate(b, sample_rate);
+    AAudioStreamBuilder_setPerformanceMode(b, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
+    AAudioStreamBuilder_setDataCallback(b, audio_take, nullptr);
+    const aaudio_result_t r = AAudioStreamBuilder_openStream(b, &audio_dev);
+    AAudioStreamBuilder_delete(b);
+    if (r != AAUDIO_OK) { logf("audio: %s; no sound", AAudio_convertResultToText(r)); audio_dev = nullptr; return -1; }
+    AAudioStream_requestStart(audio_dev);
+    logf("audio: %d Hz", AAudioStream_getSampleRate(audio_dev));
+    return 0;
+}
+
+void plat_audio_push(const int16_t *pcm, int frames)
+{
+    if (!audio_dev) return;
+    uint32_t w = ring_w.load(std::memory_order_relaxed);
+    /* keep the queue short: drop when it backs up beyond ~150 ms */
+    if (w - ring_r.load(std::memory_order_acquire) > (uint32_t)(SW_AUDIO_RATE * 15 / 100)) return;
+    for (int i = 0; i < frames; i++) ring[w++ & (RING - 1)] = (int16_t)(pcm[i] * volume / 100);
+    ring_w.store(w, std::memory_order_release);
+}
+
+void plat_audio_close(void)
+{
+    if (audio_dev) { AAudioStream_requestStop(audio_dev); AAudioStream_close(audio_dev); }
+    audio_dev = nullptr;
+}
+
+double plat_now_ms(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec * 1000.0 + (double)ts.tv_nsec / 1e6;
+}
+
+#endif
 int plat_nvram_read(void *buf, unsigned len)
 {
     if (no_nvram) return 1;
@@ -1367,6 +1532,134 @@ int plat_nvram_write(const void *buf, unsigned len)
 /* main                                                                */
 /* ------------------------------------------------------------------ */
 
+static void settings_load(void)
+{
+    dsw0 = (uint8_t)ini_int("dips", "dsw0", 0x84);
+    dsw1 = (uint8_t)ini_int("dips", "dsw1", 0x02);
+    brightness = (float)ini_dbl("vector", "brightness", 1.6);
+    linewidth = (float)ini_dbl("vector", "linewidth", 2.0);
+#ifndef __ANDROID__
+    mouse_sens = ini_dbl("input", "mouse_sensitivity", 0.25);
+    key_rate = ini_dbl("input", "key_rate", 400.0);
+#endif
+    invert_pitch = ini_int("input", "invert_pitch", 0);
+    volume = ini_int("sound", "volume", 100);
+    unit_base = (float)ini_dbl("vr", "unit_metres", unit_base);
+    hud_distance = (float)ini_dbl("vr", "hud_distance", hud_distance);
+    hud_scale = (float)ini_dbl("vr", "hud_scale", hud_scale);
+    view_base = (float)ini_dbl("vr", "view_scale", view_base);
+    star_far = (float)ini_dbl("vr", "star_depth", star_far);
+    menu_at[MENU_SIZE] = (float)ini_dbl("vr", "view_adjust", menu_at[MENU_SIZE]);
+    menu_at[MENU_DEPTH] = (float)ini_dbl("vr", "depth_adjust", menu_at[MENU_DEPTH]);
+    menu_at[MENU_STARS] = (float)ini_dbl("vr", "star_adjust", menu_at[MENU_STARS]);
+    for (auto &m : menu_at) m = std::max(-1.0f, std::min(1.0f, m));
+    menu_apply();
+    aim_range = (float)ini_dbl("vr", "aim_range", aim_range);
+    yoke_turn = (float)ini_dbl("vr", "yoke_turn", yoke_turn);
+    yoke_lift = (float)ini_dbl("vr", "yoke_lift", yoke_lift);
+    if (const char *a = ini_get("vr", "aim"))
+        for (int k = 0; k < AIM_N; k++) if (!strcmp(a, aim_names[k])) aim_mode = k;
+    flight_tilt = (float)ini_dbl("vr", "flight_tilt", flight_tilt);
+    flight_reach = (float)ini_dbl("vr", "flight_reach", flight_reach);
+    if (const char *a = ini_get("vr", "flight_hand")) flight_hand = strcmp(a, "left") ? 1 : 0;
+}
+
+#ifdef __ANDROID__
+/* In the headset: the activity's own thread.  The folder Android gives the
+ * app on shared storage (Android/data/<package>/files) holds the ROM images,
+ * sw_xr.ini, sw_xr.log and starwars.nv. */
+static int app_gone;
+
+static void app_cmd(struct android_app *, int32_t cmd)
+{
+    if (cmd == APP_CMD_DESTROY) app_gone = 1;
+}
+
+static int egl_init(void)
+{
+    const EGLint want[] = { EGL_RENDERABLE_TYPE, 0x0040 /* OpenGL ES 3 */, EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+                            EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_NONE };
+    const EGLint ctx[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
+    const EGLint pb[] = { EGL_WIDTH, 16, EGL_HEIGHT, 16, EGL_NONE };
+    EGLint n = 0;
+    egl_dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (!eglInitialize(egl_dpy, nullptr, nullptr) || !eglChooseConfig(egl_dpy, want, &egl_cfg, 1, &n) || n < 1) return 1;
+    egl_ctx = eglCreateContext(egl_dpy, egl_cfg, EGL_NO_CONTEXT, ctx);
+    egl_surf = eglCreatePbufferSurface(egl_dpy, egl_cfg, pb);       /* the eyes' pictures are the headset's own */
+    if (egl_ctx == EGL_NO_CONTEXT || egl_surf == EGL_NO_SURFACE) return 1;
+    return eglMakeCurrent(egl_dpy, egl_surf, egl_surf, egl_ctx) ? 0 : 1;
+}
+
+void android_main(struct android_app *app)
+{
+    g_app = app;
+    app->onAppCmd = app_cmd;
+    JNIEnv *env = nullptr;
+    app->activity->vm->AttachCurrentThread(&env, nullptr);
+
+    const char *dir = app->activity->externalDataPath ? app->activity->externalDataPath : app->activity->internalDataPath;
+    exe_dir = std::string(dir) + "/";
+    path_ini = exe_dir + "sw_xr.ini";
+    path_log = exe_dir + "sw_xr.log";
+    path_nv = exe_dir + "starwars.nv";
+    path_roms = dir;
+    log_file = fopen(path_log.c_str(), "w");
+    ini_load(path_ini);
+    settings_load();
+
+    int machine = 0;
+    if (egl_init()) logf("OpenGL ES: no context");
+    else {
+        logf("GL_VERSION: %s", (const char *)glGetString(GL_VERSION));
+        const char *gx = (const char *)glGetString(GL_EXTENSIONS);
+        if (!gx || !strstr(gx, "GL_EXT_sRGB_write_control")) logf("no GL_EXT_sRGB_write_control: the picture will be paler");
+        if (gl_init() == 0 && xr_init() == 0) {
+            sw_app_opts o;
+            memset(&o, 0, sizeof o);
+            o.rev = 2;
+            o.rom_dir = path_roms.c_str();
+            o.pokey_volume = ini_int("sound", "pokey_volume", 100);
+            o.speech_volume = ini_int("sound", "speech_volume", 100);
+            logf("machine: %s, ROM revision %d, images in %s", sw_app_name(), o.rev, path_roms.c_str());
+            if (sw_app_init(&o) == 0) machine = 1;
+            else { logf("%s", sw_app_error()); notice = "NO ROMS"; }
+        }
+    }
+
+    while (!app_gone && !g_quit && xr_sess) {
+        int events;
+        struct android_poll_source *src;
+        int wait = xr_running ? 0 : 50;
+        while (ALooper_pollOnce(wait, nullptr, &events, (void **)&src) >= 0) {
+            if (src) src->process(app, src);
+            wait = 0;
+            if (app->destroyRequested) app_gone = 1;
+        }
+        xr_events(&g_quit);
+        if (!xr_running) continue;                  /* the headset is off: the machine waits */
+        double now = plat_now_ms();
+        if (machine) {
+            menu_update(now);
+            if (!machine_stopped(now)) sw_app_run(now);
+        }
+        xr_frame();                                 /* waits for the headset's next frame */
+        present_pending = 0;
+    }
+
+    if (machine) {
+        sw_app_stats st;
+        sw_app_get_stats(&st);
+        logf("exit: passes %lu, cycles %llu (%.3f s machine), pictures %lu, irqs %lu, phase %02X",
+             st.passes, (unsigned long long)st.cycles, (double)st.cycles / 1512000.0, st.pictures, st.irqs, st.phase);
+        menu_save();
+        sw_app_exit();
+    }
+    xr_exit();
+    if (log_file) fclose(log_file);
+    ANativeActivity_finish(app->activity);
+    _exit(0);                                       /* a new start is a new process: nothing here is kept */
+}
+#else
 int main(int argc, char **argv)
 {
     if (parse_args(argc, argv)) {
@@ -1395,32 +1688,7 @@ int main(int argc, char **argv)
         path_roms = absolute ? rd : exe_dir + rd;
         if (!romdir_cli.empty()) path_roms = romdir_cli;
     }
-    dsw0 = (uint8_t)ini_int("dips", "dsw0", 0x84);
-    dsw1 = (uint8_t)ini_int("dips", "dsw1", 0x02);
-    brightness = (float)ini_dbl("vector", "brightness", 1.6);
-    linewidth = (float)ini_dbl("vector", "linewidth", 2.0);
-    mouse_sens = ini_dbl("input", "mouse_sensitivity", 0.25);
-    key_rate = ini_dbl("input", "key_rate", 400.0);
-    invert_pitch = ini_int("input", "invert_pitch", 0);
-    volume = ini_int("sound", "volume", 100);
-    unit_base = (float)ini_dbl("vr", "unit_metres", unit_base);
-    hud_distance = (float)ini_dbl("vr", "hud_distance", hud_distance);
-    hud_scale = (float)ini_dbl("vr", "hud_scale", hud_scale);
-    view_base = (float)ini_dbl("vr", "view_scale", view_base);
-    star_far = (float)ini_dbl("vr", "star_depth", star_far);
-    menu_at[MENU_SIZE] = (float)ini_dbl("vr", "view_adjust", menu_at[MENU_SIZE]);
-    menu_at[MENU_DEPTH] = (float)ini_dbl("vr", "depth_adjust", menu_at[MENU_DEPTH]);
-    menu_at[MENU_STARS] = (float)ini_dbl("vr", "star_adjust", menu_at[MENU_STARS]);
-    for (auto &m : menu_at) m = std::max(-1.0f, std::min(1.0f, m));
-    menu_apply();
-    aim_range = (float)ini_dbl("vr", "aim_range", aim_range);
-    yoke_turn = (float)ini_dbl("vr", "yoke_turn", yoke_turn);
-    yoke_lift = (float)ini_dbl("vr", "yoke_lift", yoke_lift);
-    if (const char *a = ini_get("vr", "aim"))
-        for (int k = 0; k < AIM_N; k++) if (!strcmp(a, aim_names[k])) aim_mode = k;
-    flight_tilt = (float)ini_dbl("vr", "flight_tilt", flight_tilt);
-    flight_reach = (float)ini_dbl("vr", "flight_reach", flight_reach);
-    if (const char *a = ini_get("vr", "flight_hand")) flight_hand = strcmp(a, "left") ? 1 : 0;
+    settings_load();
 
     const int headless = turbo || hidden_mode;
     Uint32 sdl_flags = SDL_INIT_TIMER | SDL_INIT_EVENTS;
@@ -1527,3 +1795,4 @@ int main(int argc, char **argv)
     if (log_file) fclose(log_file);
     return 0;
 }
+#endif
