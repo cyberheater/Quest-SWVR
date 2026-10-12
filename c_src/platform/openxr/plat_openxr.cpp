@@ -38,6 +38,14 @@
  * PageUp / PageDown change unit_metres, - and = the picture's size to the
  * eye (view_scale), F10 moves the HUD panel.
  *
+ * A click of either thumbstick shows a slider for the picture's size: the
+ * thumbstick moves it, from a fifth smaller at the left to a fifth larger at
+ * the right of view_scale in the middle, and a second click puts it away and
+ * keeps where it stands ([vr] view_adjust).
+ *
+ * Either hand can hold the flight stick: Y (the left controller's centring
+ * button) gives it to the left hand, B to the right.
+ *
  * --flat runs without a headset: one eye at the cockpit's own camera, in the
  * window.  The window shows the left eye otherwise.
  *
@@ -127,6 +135,37 @@ static int ini_int(const char *sec, const char *key, int def)
     const char *v = ini_get(sec, key);
     return v ? (int)strtol(v, nullptr, 0) : def;
 }
+/* One value back into the file, the rest of it left as it is. */
+static void ini_save(const std::string &path, const char *sec, const char *key, const char *val)
+{
+    std::vector<std::string> lines;
+    char line[512];
+    if (FILE *f = fopen(path.c_str(), "r")) {
+        while (fgets(line, sizeof line, f)) {
+            std::string s = line;
+            while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+            lines.push_back(s);
+        }
+        fclose(f);
+    }
+    const std::string head = std::string("[") + sec + "]", want = std::string(key) + "=", put = want + val;
+    size_t at = lines.size(), i;
+    for (i = 0; i < lines.size(); i++) if (lines[i] == head) break;
+    if (i == lines.size()) {
+        lines.push_back(head);
+        lines.push_back(put);
+    } else {
+        for (at = i + 1; at < lines.size() && lines[at].compare(0, 1, "[") != 0; at++)
+            if (lines[at].compare(0, want.size(), want) == 0) break;
+        if (at < lines.size() && lines[at].compare(0, want.size(), want) == 0) lines[at] = put;
+        else lines.insert(lines.begin() + i + 1, put);
+    }
+    if (FILE *f = fopen(path.c_str(), "w")) {
+        for (auto &s : lines) fprintf(f, "%s\n", s.c_str());
+        fclose(f);
+    }
+}
+
 static double ini_dbl(const char *sec, const char *key, double def)
 {
     const char *v = ini_get(sec, key);
@@ -146,6 +185,9 @@ static std::string nv_override, script_path, romdir_cli;
 static float unit_metres = 0.005f;    /* one of the game's units */
 static float hud_distance = 3.0f;     /* the HUD panel, metres ahead */
 static float hud_scale = 1.0f;        /* 1: the HUD covers the world as on the tube */
+static float view_base = 0.675f;      /* [vr] view_scale: the middle of the size slider */
+static float view_adjust;             /* the slider, -1 .. 1: a fifth smaller .. a fifth larger */
+static int   slider_open;
 static float view_scale = 0.675f;     /* the whole picture's size to the eye; 1: the tube's own 90 degrees across */
 enum { AIM_FLIGHT, AIM_YOKE, AIM_POINT, AIM_STICK, AIM_N };
 static const char *const aim_names[] = { "flight", "yoke", "point", "stick" };
@@ -379,6 +421,35 @@ static void draw_eye(const eye_xf &E)
         line(a, b, s.rgb, s.in);
     }
 
+    /* the size slider: a track two metres ahead, below the middle, with its
+     * knob, a mark at each end and at the middle, and its name */
+    if (slider_open) {
+        const float Z = -2.0f, Y0 = -0.30f, W = 0.40f, WHITE_IN = 200;
+        const uint32_t white = 0xFFFFFFFFu, yellow = 0xFF00FFFFu;
+        auto at = [&](float x0, float y0, float x1, float y1, uint32_t rgb) {
+            float a[3] = { x0, Y0 + y0, Z }, b[3] = { x1, Y0 + y1, Z };
+            line(a, b, rgb, (int)WHITE_IN);
+        };
+        at(-W, 0, W, 0, white);
+        at(-W, -0.03f, -W, 0.03f, white);
+        at(W, -0.03f, W, 0.03f, white);
+        at(0, -0.05f, 0, 0.05f, white);
+        at(-W - 0.08f, 0, -W - 0.04f, 0, white);                           /* - */
+        at(W + 0.04f, 0, W + 0.08f, 0, white);                             /* + */
+        at(W + 0.06f, -0.02f, W + 0.06f, 0.02f, white);
+        const float k = W * view_adjust, r = 0.03f;
+        at(k - r, 0, k, r, yellow); at(k, r, k + r, 0, yellow);
+        at(k + r, 0, k, -r, yellow); at(k, -r, k - r, 0, yellow);
+        /* SIZE, on a 4 by 6 grid */
+        static const signed char S_[] = { 4,6, 0,6, 0,3, 4,3, 4,0, 0,0, -1 }, I_[] = { 2,0, 2,6, -1 },
+                                 Z_[] = { 0,6, 4,6, 0,0, 4,0, -1 }, E_[] = { 4,6, 0,6, 0,0, 4,0, -1 }, E2[] = { 0,3, 3,3, -1 };
+        static const struct { const signed char *p; int col; } letters[] = { { S_, 0 }, { I_, 1 }, { Z_, 2 }, { E_, 3 }, { E2, 3 } };
+        const float u = 0.012f, x_left = -(4 * 6 - 2) * u * 0.5f;
+        for (auto &L : letters)
+            for (const signed char *q = L.p; q[2] >= 0; q += 2)
+                at(x_left + (L.col * 6 + q[0]) * u, 0.09f + q[1] * u, x_left + (L.col * 6 + q[2]) * u, 0.09f + q[3] * u, white);
+    }
+
     glViewport(0, 0, E.w, E.h);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
@@ -448,12 +519,13 @@ static XrViewConfigurationView xr_vcv[2];
 struct eye_chain { XrSwapchain sc; int w, h; std::vector<XrSwapchainImageOpenGLKHR> img; };
 static eye_chain  xr_eye[2];
 static XrActionSet xr_set;
-static XrAction    act_yoke, act_fire_r, act_fire_l, act_thumb_r, act_thumb_l, act_coin, act_centre, act_aim;
+static XrAction    act_yoke, act_fire_r, act_fire_l, act_thumb_r, act_thumb_l, act_coin, act_centre, act_aim, act_menu;
 
 /* what the controllers say, for plat_input_poll */
 static struct {
     float stick_x, stick_y, fire_r, fire_l, thumb_r, thumb_l;
-    int   coin, centre;
+    int   coin, centre, menu;
+    int   centre_hand[2];               /* which hand's centring button */
     int   hand_ok[2];                   /* left, right: pointing and placed */
     float hand_yaw[2], hand_pitch[2];   /* where each points, degrees: right, up, in the cockpit */
     float hand_roll[2];                 /* how far each leans over to the right, degrees */
@@ -509,7 +581,8 @@ static int xr_actions_init(void)
     act_thumb_r = xr_action(XR_ACTION_TYPE_FLOAT_INPUT, "thumb_right", "Right thumb button");
     act_thumb_l = xr_action(XR_ACTION_TYPE_FLOAT_INPUT, "thumb_left", "Left thumb button");
     act_coin    = xr_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "coin", "Insert coin");
-    act_centre  = xr_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "centre", "Centre the view");
+    act_centre  = xr_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "centre", "Centre the view", 1);
+    act_menu    = xr_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "size", "Size slider");
     act_aim     = xr_action(XR_ACTION_TYPE_POSE_INPUT, "handle", "Yoke handle", 1);
 
     const XrActionSuggestedBinding b[] = {
@@ -523,6 +596,8 @@ static int xr_actions_init(void)
         { act_coin,    xr_path("/user/hand/left/input/x/click") },
         { act_centre,  xr_path("/user/hand/right/input/b/click") },
         { act_centre,  xr_path("/user/hand/left/input/y/click") },
+        { act_menu,    xr_path("/user/hand/right/input/thumbstick/click") },
+        { act_menu,    xr_path("/user/hand/left/input/thumbstick/click") },
         { act_aim,     xr_path("/user/hand/left/input/aim/pose") },
         { act_aim,     xr_path("/user/hand/right/input/aim/pose") },
     };
@@ -663,11 +738,12 @@ static float xr_float(XrAction a)
     gi.action = a;
     return XR_SUCCEEDED(xrGetActionStateFloat(xr_sess, &gi, &s)) && s.isActive ? s.currentState : 0.0f;
 }
-static int xr_bool(XrAction a)
+static int xr_bool(XrAction a, XrPath hand = XR_NULL_PATH)
 {
     XrActionStateGetInfo gi = { XR_TYPE_ACTION_STATE_GET_INFO };
     XrActionStateBoolean s = { XR_TYPE_ACTION_STATE_BOOLEAN };
     gi.action = a;
+    gi.subactionPath = hand;
     return XR_SUCCEEDED(xrGetActionStateBoolean(xr_sess, &gi, &s)) && s.isActive && s.currentState;
 }
 
@@ -709,7 +785,9 @@ static void xr_input(XrTime when)
     xin.thumb_r = xr_float(act_thumb_r);
     xin.thumb_l = xr_float(act_thumb_l);
     xin.coin = xr_bool(act_coin);
-    xin.centre = xr_bool(act_centre);
+    for (int h = 0; h < 2; h++) xin.centre_hand[h] = xr_bool(act_centre, xr_hand_path[h]);
+    xin.centre = xin.centre_hand[0] || xin.centre_hand[1];
+    xin.menu = xr_bool(act_menu);
 
     for (int h = 0; h < 2 && centred; h++) {
         XrSpaceLocation loc = { XR_TYPE_SPACE_LOCATION };
@@ -900,8 +978,8 @@ static void pump_events(void)
                 logf("[vr] hud_distance=%g", hud_distance);
                 break;
             case SDL_SCANCODE_HOME: centre_request = yoke_rest_request = 1; break;
-            case SDL_SCANCODE_MINUS: view_scale /= 1.1f; logf("[vr] view_scale=%g", view_scale); break;
-            case SDL_SCANCODE_EQUALS: view_scale *= 1.1f; logf("[vr] view_scale=%g", view_scale); break;
+            case SDL_SCANCODE_MINUS: view_base /= 1.1f; logf("[vr] view_scale=%g", view_base); break;
+            case SDL_SCANCODE_EQUALS: view_base *= 1.1f; logf("[vr] view_scale=%g", view_base); break;
             case SDL_SCANCODE_PAGEUP: unit_metres *= 1.25f; logf("[vr] unit_metres=%g", unit_metres); break;
             case SDL_SCANCODE_PAGEDOWN: unit_metres /= 1.25f; logf("[vr] unit_metres=%g", unit_metres); break;
             default: break;
@@ -995,6 +1073,28 @@ void plat_input_poll(plat_inputs *in)
     {
         const float dz = 0.12f;
         float sx = fabsf(xin.stick_x) < dz ? 0.0f : xin.stick_x, sy = fabsf(xin.stick_y) < dz ? 0.0f : xin.stick_y;
+
+        /* a thumbstick's click: the size slider, which has the thumbsticks while it shows */
+        static int menu_was;
+        if (xin.menu && !menu_was) {
+            slider_open = !slider_open;
+            if (!slider_open) {
+                char v[32];
+                snprintf(v, sizeof v, "%.3f", view_adjust);
+                ini_save(path_ini, "vr", "view_adjust", v);
+                logf("[vr] view_adjust=%s", v);
+            }
+        }
+        menu_was = xin.menu;
+        if (slider_open) {
+            view_adjust = std::max(-1.0f, std::min(1.0f, view_adjust + sx * (float)dt / 1000.0f));
+            sx = sy = 0.0f;
+        }
+        view_scale = view_base * (1.0f + 0.2f * view_adjust);
+
+        /* the hand whose centring button was pressed last holds the stick */
+        for (int h = 0; h < 2; h++) if (xin.centre_hand[h]) flight_hand = h;
+
         if (aim_mode == AIM_FLIGHT && xin.hand_ok[flight_hand]) {
             /* a flight stick in the hand: how far it tips from how it was
              * held at rest, and how far its top has moved from there */
@@ -1014,9 +1114,9 @@ void plat_input_poll(plat_inputs *in)
                 sx += (at[0] - flight_rest.pos[0]) / flight_reach;
                 sy += (at[2] - flight_rest.pos[2]) / flight_reach;                 /* pulled back: up */
             }
-        } else if (aim_mode == AIM_POINT && xin.hand_ok[1]) {
-            sx = xin.hand_yaw[1] / aim_range;
-            sy = xin.hand_pitch[1] / aim_range;
+        } else if (aim_mode == AIM_POINT && xin.hand_ok[flight_hand]) {
+            sx = xin.hand_yaw[flight_hand] / aim_range;
+            sy = xin.hand_pitch[flight_hand] / aim_range;
         } else if (aim_mode == AIM_YOKE && xin.hand_ok[0] && xin.hand_ok[1]) {
             /* the cabinet's yoke: it turns like a wheel, by the line from
              * hand to hand; the hands' height stands for its handles' tilt */
@@ -1176,7 +1276,9 @@ int main(int argc, char **argv)
     unit_metres = (float)ini_dbl("vr", "unit_metres", unit_metres);
     hud_distance = (float)ini_dbl("vr", "hud_distance", hud_distance);
     hud_scale = (float)ini_dbl("vr", "hud_scale", hud_scale);
-    view_scale = (float)ini_dbl("vr", "view_scale", view_scale);
+    view_base = (float)ini_dbl("vr", "view_scale", view_base);
+    view_adjust = std::max(-1.0f, std::min(1.0f, (float)ini_dbl("vr", "view_adjust", 0.0)));
+    view_scale = view_base * (1.0f + 0.2f * view_adjust);
     /* the stars as a sky behind the ships (0: among them, as the game has them) */
     sw3d_star_depth((float)ini_dbl("vr", "star_depth", 65536.0));
     aim_range = (float)ini_dbl("vr", "aim_range", aim_range);
