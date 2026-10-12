@@ -657,13 +657,11 @@ static int xr_actions_init(void)
     return 0;
 }
 
-static int xr_init(void)
-{
-    /* [vr] runtime: an OpenXR runtime's .json, for this program only (the
-     * system's active runtime otherwise) */
-    const char *rt = ini_get("vr", "runtime");
-    if (rt && *rt && !getenv("XR_RUNTIME_JSON")) _putenv_s("XR_RUNTIME_JSON", rt);
+static std::string xr_runtime_name;
 
+/* An instance of the runtime the loader now finds, and its headset: 0 = there is one. */
+static int xr_open(void)
+{
     uint32_t n = 0;
     int have_gl = 0;
     if (xr_bad(xrEnumerateInstanceExtensionProperties(nullptr, 0, &n, nullptr), "no OpenXR runtime")) return 1;
@@ -681,13 +679,50 @@ static int xr_init(void)
     ci.enabledExtensionNames = exts;
     if (xr_bad(xrCreateInstance(&ci, &xr_inst), "xrCreateInstance")) return 1;
     XrInstanceProperties ip = { XR_TYPE_INSTANCE_PROPERTIES };
-    if (XR_SUCCEEDED(xrGetInstanceProperties(xr_inst, &ip)))
+    if (XR_SUCCEEDED(xrGetInstanceProperties(xr_inst, &ip))) {
         logf("OpenXR runtime: %s %u.%u.%u", ip.runtimeName, XR_VERSION_MAJOR(ip.runtimeVersion),
              XR_VERSION_MINOR(ip.runtimeVersion), XR_VERSION_PATCH(ip.runtimeVersion));
+        xr_runtime_name = ip.runtimeName;
+    }
 
     XrSystemGetInfo sgi = { XR_TYPE_SYSTEM_GET_INFO };
     sgi.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
     if (xr_bad(xrGetSystem(xr_inst, &sgi, &xr_sys), "no headset (xrGetSystem)")) return 1;
+    return 0;
+}
+
+static int xr_init(void)
+{
+    /* Which runtime: the one that has a headset.  A Quest is one runtime's
+     * headset over Quest Link and another's over Virtual Desktop, whichever
+     * the system calls active, so each is tried in turn: XR_RUNTIME_JSON if
+     * it was set outside, [vr] runtime, every runtime Windows knows (SteamVR
+     * last: asking it starts it), then the system's active one. */
+    {
+        std::vector<std::string> tries, steam;
+        if (const char *e = getenv("XR_RUNTIME_JSON")) if (*e) tries.push_back(e);
+        if (const char *rt = ini_get("vr", "runtime")) if (*rt) tries.push_back(rt);
+        HKEY key;
+        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Khronos\\OpenXR\\1\\AvailableRuntimes", 0, KEY_READ, &key) == ERROR_SUCCESS) {
+            char name[1024];
+            for (DWORD i = 0, len = sizeof name; RegEnumValueA(key, i, name, &len, nullptr, nullptr, nullptr, nullptr) == ERROR_SUCCESS;
+                 i++, len = sizeof name)
+                (strstr(name, "SteamVR") ? steam : tries).push_back(name);
+            RegCloseKey(key);
+        }
+        tries.insert(tries.end(), steam.begin(), steam.end());
+        tries.push_back("");
+        int found = 0;
+        for (size_t i = 0; i < tries.size() && !found; i++) {
+            if (std::find(tries.begin(), tries.begin() + i, tries[i]) != tries.begin() + i) continue;
+            logf("OpenXR: trying %s", tries[i].empty() ? "the system's active runtime" : tries[i].c_str());
+            _putenv_s("XR_RUNTIME_JSON", tries[i].c_str());
+            if (xr_open() == 0) found = 1;
+            else if (xr_inst) { xrDestroyInstance(xr_inst); xr_inst = XR_NULL_HANDLE; }
+        }
+        if (!found) return 1;
+    }
+    uint32_t n = 0;
 
     /* the runtime insists on being asked, and the loader does not export an extension's functions */
     XrGraphicsRequirementsOpenGLKHR req = { XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR };
@@ -1253,8 +1288,9 @@ int plat_audio_open(int sample_rate)
     want.channels = 1;
     want.samples = 512;
     /* Which output: [sound] device (any part of its name; "default" for
-     * Windows' own choice), or else, in the headset, the headset's - Quest
-     * Link's is the "Oculus Virtual Audio Device" - when there is one. */
+     * Windows' own choice), or else, in the headset, the headset's when
+     * there is one: Quest Link's "Oculus Virtual Audio Device" on its
+     * runtime, "Virtual Desktop Audio" on the others. */
     std::string pick;
     const char *asked = ini_get("sound", "device");
     const int n = SDL_GetNumAudioDevices(0);
@@ -1264,7 +1300,10 @@ int plat_audio_open(int sample_rate)
         logf("audio output %d: %s", i, name);
         if (!pick.empty()) continue;
         if (asked && *asked ? strstr(name, asked) != nullptr
-                            : !flat && (strstr(name, "Oculus Virtual Audio") || strstr(name, "Meta Virtual Audio"))) pick = name;
+                            : flat ? false
+                            : xr_runtime_name.find("Oculus") != std::string::npos
+                              ? strstr(name, "Oculus Virtual Audio") || strstr(name, "Meta Virtual Audio")
+                              : strstr(name, "Virtual Desktop Audio") != nullptr) pick = name;
     }
     if (!pick.empty()) {
         audio_dev = SDL_OpenAudioDevice(pick.c_str(), 0, &want, &have, 0);
@@ -1405,8 +1444,8 @@ int main(int argc, char **argv)
         for (int i = 0; i < SDL_NumJoysticks() && !pad; i++)
             if (SDL_IsGameController(i)) pad = SDL_GameControllerOpen(i);
         if (!flat && xr_init()) {
-            const char *msg = "No headset was found through OpenXR.\n\nStart Quest Link (or Air Link) first, and make "
-                              "the headset's runtime the active OpenXR runtime; sw_xr.log says what failed.\n\n"
+            const char *msg = "No headset was found through OpenXR.\n\nStart Quest Link, Air Link or Virtual Desktop "
+                              "first, with the headset on; sw_xr.log says which runtimes were tried and what failed.\n\n"
                               "sw_xr --flat runs in this window without a headset.";
             logf("%s", msg);
             SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, APP_NAME, msg, win);
