@@ -49,6 +49,7 @@
  *          middle                                          ([vr] depth_adjust)
  *   STARS  how far away the stars are, from 1/4096 of star_depth (among
  *          the ships) at the left to star_depth at the right ([vr] star_adjust)
+ *   QUIT   A or X on this row leaves the game
  *
  * Either hand can hold the flight stick: Y (the left controller's centring
  * button) gives it to the left hand, B to the right.
@@ -221,7 +222,7 @@ static float unit_metres = 0.005f;    /* one of the game's units */
 static float hud_distance = 3.0f;     /* the HUD panel, metres ahead */
 static float hud_scale = 1.0f;        /* 1: the HUD covers the world as on the tube */
 static float view_base = 0.675f;      /* [vr] view_scale: the middle of the size slider */
-enum { MENU_SIZE, MENU_DEPTH, MENU_STARS, MENU_N };
+enum { MENU_SIZE, MENU_DEPTH, MENU_STARS, MENU_QUIT, MENU_N };     /* three sliders, and the way out */
 static float menu_at[MENU_N] = { 0.0f, 0.0f, 1.0f };    /* the sliders, each -1 .. 1 */
 static int   menu_row;                /* the one the thumbstick has */
 static int   slider_open;
@@ -413,10 +414,11 @@ static const signed char S_[] = { 4,6, 0,6, 0,3, 4,3, 4,0, 0,0, -1 }, I_[] = { 2
     D_[] = { 0,0, 0,6, 3,6, 4,5, 4,1, 3,0, 0,0, -1 }, P_[] = { 0,0, 0,6, 4,6, 4,3, 0,3, -1 },
     T_[] = { 0,6, 4,6, -2, 2,6, 2,0, -1 }, H_[] = { 0,0, 0,6, -2, 4,0, 4,6, -2, 0,3, 4,3, -1 },
     A_[] = { 0,0, 0,4, 2,6, 4,4, 4,0, -2, 0,3, 4,3, -1 }, R_[] = { 0,0, 0,6, 4,6, 4,3, 0,3, -2, 2,3, 4,0, -1 },
-    N_[] = { 0,0, 0,6, 4,0, 4,6, -1 }, O_[] = { 0,0, 0,6, 4,6, 4,0, 0,0, -1 }, M_[] = { 0,0, 0,6, 2,3, 4,6, 4,0, -1 };
+    N_[] = { 0,0, 0,6, 4,0, 4,6, -1 }, O_[] = { 0,0, 0,6, 4,6, 4,0, 0,0, -1 }, M_[] = { 0,0, 0,6, 2,3, 4,6, 4,0, -1 },
+    Q_[] = { 0,0, 0,6, 4,6, 4,0, 0,0, -2, 2,2, 4,0, -1 }, U_[] = { 0,6, 0,0, 4,0, 4,6, -1 };
 static const struct { char c; const signed char *p; } font[] = {
     { 'S', S_ }, { 'I', I_ }, { 'Z', Z_ }, { 'E', E_ }, { 'D', D_ }, { 'P', P_ }, { 'T', T_ }, { 'H', H_ }, { 'A', A_ },
-    { 'R', R_ }, { 'N', N_ }, { 'O', O_ }, { 'M', M_ } };
+    { 'R', R_ }, { 'N', N_ }, { 'O', O_ }, { 'M', M_ }, { 'Q', Q_ }, { 'U', U_ } };
 static const char *notice;              /* a word to show in place of the game: it could not start */
 
 /* The picture's lines as this eye sees them, into the bound framebuffer's
@@ -498,7 +500,7 @@ static void draw_eye(const eye_xf &E)
         gain = 1.0f;
         const float Z = -2.0f, W = 0.40f, u = 0.010f;
         const uint32_t white = 0xFFFFFFFFu, yellow = 0xFF00FFFFu;
-        static const char *const names[MENU_N] = { "SIZE", "DEPTH", "STARS" };
+        static const char *const names[MENU_N] = { "SIZE", "DEPTH", "STARS", "QUIT" };
         for (int row = 0; row < MENU_N; row++) {
             const float Y0 = -0.18f - 0.14f * (float)row;
             const int in = row == menu_row ? 220 : 80;
@@ -506,13 +508,26 @@ static void draw_eye(const eye_xf &E)
                 float a[3] = { x0, Y0 + y0, Z }, b[3] = { x1, Y0 + y1, Z };
                 line(a, b, rgb, in);
             };
-            at(-W, 0, W, 0, white);
-            at(-W, -0.03f, -W, 0.03f, white);
-            at(W, -0.03f, W, 0.03f, white);
-            at(0, -0.04f, 0, 0.04f, white);
-            const float k = W * menu_at[row], r = 0.03f;
-            at(k - r, 0, k, r, yellow); at(k, r, k + r, 0, yellow);
-            at(k + r, 0, k, -r, yellow); at(k, -r, k - r, 0, yellow);
+            if (row != MENU_QUIT) {
+                at(-W, 0, W, 0, white);
+                at(-W, -0.03f, -W, 0.03f, white);
+                at(W, -0.03f, W, 0.03f, white);
+                at(0, -0.04f, 0, 0.04f, white);
+                const float k = W * menu_at[row], r = 0.03f;
+                at(k - r, 0, k, r, yellow); at(k, r, k + r, 0, yellow);
+                at(k + r, 0, k, -r, yellow); at(k, -r, k - r, 0, yellow);
+            } else {
+                /* how: where the others have their track */
+                float x = -W;
+                for (const char *c = "PRESS A"; *c; c++, x += 6.0f * u)
+                    for (auto &f : font) {
+                        if (f.c != *c) continue;
+                        for (const signed char *q = f.p; q[2] != -1; q += 2) {
+                            if (q[2] == -2) { q++; continue; }
+                            at(x + q[0] * u, (q[1] - 3) * u, x + q[2] * u, (q[3] - 3) * u, yellow);
+                        }
+                    }
+            }
             /* the name, ending a little left of the track */
             const char *name = names[row];
             float x = -W - 0.08f - (float)strlen(name) * 6.0f * u;
@@ -1192,7 +1207,8 @@ static void menu_update(double now)
     last = now;
     if (xin.menu && !menu_was) {
         slider_open = !slider_open;
-        if (!slider_open) {
+        if (slider_open) menu_row = 0;
+        else {
             menu_save();
             resume_at = now + 250.0;
         }
@@ -1204,7 +1220,8 @@ static void menu_update(double now)
         const int step = xin.stick_y > 0.6f ? -1 : xin.stick_y < -0.6f ? 1 : 0;      /* up or down is one row a push */
         if (step && !stepped) menu_row = (menu_row + step + MENU_N) % MENU_N;
         stepped = step;
-        if (!step) menu_at[menu_row] = std::max(-1.0f, std::min(1.0f, menu_at[menu_row] + sx * (float)dt / 1000.0f));
+        if (menu_row == MENU_QUIT) { if (xin.coin) g_quit = 1; }             /* A or X, on the last row: leave */
+        else if (!step) menu_at[menu_row] = std::max(-1.0f, std::min(1.0f, menu_at[menu_row] + sx * (float)dt / 1000.0f));
     }
     menu_apply();
 }
@@ -1213,8 +1230,8 @@ static int machine_stopped(double now) { return slider_open || now < resume_at; 
 
 static void menu_save(void)
 {
-    static const char *const keys[MENU_N] = { "view_adjust", "depth_adjust", "star_adjust" };
-    for (int k = 0; k < MENU_N; k++) {
+    static const char *const keys[MENU_QUIT] = { "view_adjust", "depth_adjust", "star_adjust" };
+    for (int k = 0; k < MENU_QUIT; k++) {
         char v[32];
         snprintf(v, sizeof v, "%.3f", menu_at[k]);
         ini_save(path_ini, "vr", keys[k], v);
