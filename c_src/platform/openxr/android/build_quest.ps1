@@ -46,7 +46,9 @@ Copy-Item "$OpenXR\prefab\modules\openxr_loader\libs\android.$abi\libopenxr_load
 Run "$ndk\toolchains\llvm\prebuilt\windows-x86_64\bin\llvm-strip.exe" @('--strip-unneeded', "$stage\lib\$abi\libstarwars.so")
 
 $raw = "$build\starwars-raw.apk"; $aligned = "$build\starwars-aligned.apk"; $apk = "$src\StarWarsQuest.apk"
-Run "$bt\aapt2.exe" @('link', '-o', $raw, '--manifest', "$PSScriptRoot\AndroidManifest.xml", '-I', "$plat\android.jar")
+$res = "$build\res.zip"                                            # the name and the icon
+Run "$bt\aapt2.exe" @('compile', '--dir', "$PSScriptRoot\res", '-o', $res)
+Run "$bt\aapt2.exe" @('link', '-o', $raw, '--manifest', "$PSScriptRoot\AndroidManifest.xml", '-I', "$plat\android.jar", $res)
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $zip = [IO.Compression.ZipFile]::Open($raw, 'Update')
 foreach ($f in Get-ChildItem "$stage\lib\$abi") {
