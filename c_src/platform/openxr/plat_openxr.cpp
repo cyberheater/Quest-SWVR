@@ -1040,6 +1040,21 @@ void plat_input_poll(plat_inputs *in)
         if (xin.centre) centre_request = yoke_rest_request = 1;
     }
 
+    /* A coin closes its switch for a moment as it falls past, and the program
+     * (S_DETCT) takes no coin from a switch that stays closed: about a quarter
+     * of a second is already too long.  So a press, however long it is held,
+     * is one coin's 100 ms. */
+    {
+        static int was[2];
+        static double until[2];
+        uint8_t *sw[2] = { &in->coin_l, &in->coin_r };
+        for (int i = 0; i < 2; i++) {
+            if (*sw[i] && !was[i]) until[i] = now + 100.0;
+            was[i] = *sw[i];
+            *sw[i] = now < until[i] ? 1 : 0;
+        }
+    }
+
     if (x < 0.0) x = 0.0;
     if (x > 255.0) x = 255.0;
     if (y < 0.0) y = 0.0;
