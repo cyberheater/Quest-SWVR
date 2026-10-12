@@ -1252,8 +1252,27 @@ int plat_audio_open(int sample_rate)
     want.format = AUDIO_S16SYS;
     want.channels = 1;
     want.samples = 512;
-    audio_dev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
+    /* Which output: [sound] device (any part of its name; "default" for
+     * Windows' own choice), or else, in the headset, the headset's - Quest
+     * Link's is the "Oculus Virtual Audio Device" - when there is one. */
+    std::string pick;
+    const char *asked = ini_get("sound", "device");
+    const int n = SDL_GetNumAudioDevices(0);
+    for (int i = 0; i < n; i++) {
+        const char *name = SDL_GetAudioDeviceName(i, 0);
+        if (!name) continue;
+        logf("audio output %d: %s", i, name);
+        if (!pick.empty()) continue;
+        if (asked && *asked ? strstr(name, asked) != nullptr
+                            : !flat && (strstr(name, "Oculus Virtual Audio") || strstr(name, "Meta Virtual Audio"))) pick = name;
+    }
+    if (!pick.empty()) {
+        audio_dev = SDL_OpenAudioDevice(pick.c_str(), 0, &want, &have, 0);
+        if (!audio_dev) logf("audio: %s: %s; the default instead", pick.c_str(), SDL_GetError());
+    }
+    if (!audio_dev) { pick = "the default output"; audio_dev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0); }
     if (!audio_dev) { logf("audio: %s; no sound", SDL_GetError()); return -1; }
+    logf("audio: %s", pick.c_str());
     SDL_PauseAudioDevice(audio_dev, 0);
     return 0;
 }
