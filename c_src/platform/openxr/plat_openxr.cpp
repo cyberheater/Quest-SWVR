@@ -961,8 +961,8 @@ void plat_input_poll(plat_inputs *in)
         if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_BACK)) in->coin_l = 1;
     }
 
-    /* the Touch controllers: a stick pushed up is the yoke pushed forward,
-     * as the arrow keys and the game controller have it */
+    /* the Touch controllers: up is the sight up (the pot's high end), the
+     * other way from the mouse and the arrow keys, which are a yoke pushed */
     {
         const float dz = 0.12f;
         float sx = fabsf(xin.stick_x) < dz ? 0.0f : xin.stick_x, sy = fabsf(xin.stick_y) < dz ? 0.0f : xin.stick_y;
@@ -983,7 +983,7 @@ void plat_input_poll(plat_inputs *in)
         sx = std::max(-1.0f, std::min(1.0f, sx));
         sy = std::max(-1.0f, std::min(1.0f, sy));
         x += sx * 127.0;
-        y -= sy * 127.0 * (invert_pitch ? -1.0 : 1.0);
+        y += sy * 127.0 * (invert_pitch ? -1.0 : 1.0);
         if (xin.fire_r > 0.5f) in->fire_r = 1;
         if (xin.fire_l > 0.5f) in->fire_l = 1;
         if (xin.thumb_r > 0.5f) in->thumb_r = 1;
