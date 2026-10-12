@@ -17,10 +17,15 @@
  * the world exactly as it does on the tube, so the sight stays on what the
  * guns hit.
  *
- * Controls in the headset (Touch controllers): either thumbstick is the yoke,
- * the triggers are the triggers, the grips the thumb buttons, A or X a coin,
- * B or Y centres the view.  With [vr] aim=point (or F9) the right controller
- * is the yoke instead: point it where the sight should go.  The mouse, the
+ * Controls in the headset (Touch controllers): the two controllers are the
+ * yoke's two handles.  Held level side by side they are the yoke at rest;
+ * turned like a steering wheel (one hand up, the other down) they are the
+ * yoke turned, and both tilted forward or back they are its handles tilted.
+ * The triggers are the triggers, the grips the thumb buttons, A or X a coin,
+ * B or Y centres the view and takes the handles' tilt now as the yoke's rest.
+ * The thumbsticks move the yoke too.  F9 (or [vr] aim) steps through yoke,
+ * point (the right controller alone: point it where the sight should go) and
+ * stick (the thumbsticks only).  The mouse, the
  * keys and a game controller work as in sw_sdl while the window has the focus.
  * PageUp / PageDown change unit_metres, F10 moves the HUD panel.
  *
@@ -131,8 +136,12 @@ static std::string nv_override, script_path, romdir_cli;
 static float unit_metres = 0.02f;     /* one of the game's units */
 static float hud_distance = 3.0f;     /* the HUD panel, metres ahead */
 static float hud_scale = 1.0f;        /* 1: the HUD covers the world as on the tube */
-static int   aim_point;               /* the right controller is the yoke */
-static float aim_range = 30.0f;       /* degrees off straight ahead for the yoke's full travel */
+enum { AIM_YOKE, AIM_POINT, AIM_STICK };
+static const char *const aim_names[] = { "yoke", "point", "stick" };
+static int   aim_mode = AIM_YOKE;     /* what the controllers' poses do */
+static float aim_range = 30.0f;       /* point: degrees off straight ahead for the yoke's full travel */
+static float yoke_turn = 40.0f;       /* yoke: degrees of turn, and of tilt, for its full travel */
+static float yoke_tilt = 30.0f;
 
 static int parse_args(int argc, char **argv)
 {
@@ -410,7 +419,8 @@ static void draw_flat(void)
 static XrInstance xr_inst;
 static XrSystemId xr_sys;
 static XrSession  xr_sess;
-static XrSpace    xr_local, xr_aim_space;
+static XrSpace    xr_local, xr_hand_space[2];     /* left, right */
+static XrPath     xr_hand_path[2];
 static int        xr_running, xr_focused;
 static XrViewConfigurationView xr_vcv[2];
 struct eye_chain { XrSwapchain sc; int w, h; std::vector<XrSwapchainImageOpenGLKHR> img; };
@@ -422,9 +432,12 @@ static XrAction    act_yoke, act_fire_r, act_fire_l, act_thumb_r, act_thumb_l, a
 static struct {
     float stick_x, stick_y, fire_r, fire_l, thumb_r, thumb_l;
     int   coin, centre;
-    int   aim_ok;
-    float aim_yaw, aim_pitch;           /* degrees: right, up, in the cockpit */
+    int   hand_ok[2];                   /* left, right: pointing and placed */
+    float hand_yaw[2], hand_pitch[2];   /* where each points, degrees: right, up, in the cockpit */
+    float hand_pos[2][3];               /* where each is, the cockpit's axes */
 } xin;
+static int   yoke_rest_request = 1;     /* take the handles' tilt now as the yoke's rest */
+static float yoke_rest;
 
 /* where the cockpit is in the room: the game's camera, and the way it faces */
 static int   centred, centre_request;
@@ -446,11 +459,12 @@ static XrPath xr_path(const char *s)
     return p;
 }
 
-static XrAction xr_action(XrActionType type, const char *name, const char *text)
+static XrAction xr_action(XrActionType type, const char *name, const char *text, int per_hand = 0)
 {
     XrActionCreateInfo ci = { XR_TYPE_ACTION_CREATE_INFO };
     XrAction a = XR_NULL_HANDLE;
     ci.actionType = type;
+    if (per_hand) { ci.countSubactionPaths = 2; ci.subactionPaths = xr_hand_path; }
     snprintf(ci.actionName, sizeof ci.actionName, "%s", name);
     snprintf(ci.localizedActionName, sizeof ci.localizedActionName, "%s", text);
     xr_bad(xrCreateAction(xr_set, &ci, &a), name);
@@ -463,6 +477,8 @@ static int xr_actions_init(void)
     snprintf(si.actionSetName, sizeof si.actionSetName, "cabinet");
     snprintf(si.localizedActionSetName, sizeof si.localizedActionSetName, "Star Wars cabinet");
     if (xr_bad(xrCreateActionSet(xr_inst, &si, &xr_set), "xrCreateActionSet")) return 1;
+    xr_hand_path[0] = xr_path("/user/hand/left");
+    xr_hand_path[1] = xr_path("/user/hand/right");
     act_yoke    = xr_action(XR_ACTION_TYPE_VECTOR2F_INPUT, "yoke", "Flight yoke");
     act_fire_r  = xr_action(XR_ACTION_TYPE_FLOAT_INPUT, "fire_right", "Right trigger");
     act_fire_l  = xr_action(XR_ACTION_TYPE_FLOAT_INPUT, "fire_left", "Left trigger");
@@ -470,7 +486,7 @@ static int xr_actions_init(void)
     act_thumb_l = xr_action(XR_ACTION_TYPE_FLOAT_INPUT, "thumb_left", "Left thumb button");
     act_coin    = xr_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "coin", "Insert coin");
     act_centre  = xr_action(XR_ACTION_TYPE_BOOLEAN_INPUT, "centre", "Centre the view");
-    act_aim     = xr_action(XR_ACTION_TYPE_POSE_INPUT, "aim", "Yoke by pointing");
+    act_aim     = xr_action(XR_ACTION_TYPE_POSE_INPUT, "handle", "Yoke handle", 1);
 
     const XrActionSuggestedBinding b[] = {
         { act_yoke,    xr_path("/user/hand/right/input/thumbstick") },
@@ -483,6 +499,7 @@ static int xr_actions_init(void)
         { act_coin,    xr_path("/user/hand/left/input/x/click") },
         { act_centre,  xr_path("/user/hand/right/input/b/click") },
         { act_centre,  xr_path("/user/hand/left/input/y/click") },
+        { act_aim,     xr_path("/user/hand/left/input/aim/pose") },
         { act_aim,     xr_path("/user/hand/right/input/aim/pose") },
     };
     XrInteractionProfileSuggestedBinding sb = { XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
@@ -496,10 +513,13 @@ static int xr_actions_init(void)
     ai.actionSets = &xr_set;
     if (xr_bad(xrAttachSessionActionSets(xr_sess, &ai), "xrAttachSessionActionSets")) return 1;
 
-    XrActionSpaceCreateInfo sp = { XR_TYPE_ACTION_SPACE_CREATE_INFO };
-    sp.action = act_aim;
-    sp.poseInActionSpace.orientation.w = 1.0f;
-    xr_bad(xrCreateActionSpace(xr_sess, &sp, &xr_aim_space), "xrCreateActionSpace");
+    for (int h = 0; h < 2; h++) {
+        XrActionSpaceCreateInfo sp = { XR_TYPE_ACTION_SPACE_CREATE_INFO };
+        sp.action = act_aim;
+        sp.subactionPath = xr_hand_path[h];
+        sp.poseInActionSpace.orientation.w = 1.0f;
+        xr_bad(xrCreateActionSpace(xr_sess, &sp, &xr_hand_space[h]), "xrCreateActionSpace");
+    }
     return 0;
 }
 
@@ -667,16 +687,19 @@ static void xr_input(XrTime when)
     xin.coin = xr_bool(act_coin);
     xin.centre = xr_bool(act_centre);
 
-    XrSpaceLocation loc = { XR_TYPE_SPACE_LOCATION };
-    if (centred && XR_SUCCEEDED(xrLocateSpace(xr_aim_space, xr_local, when, &loc)) &&
-        (loc.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)) {
+    for (int h = 0; h < 2 && centred; h++) {
+        XrSpaceLocation loc = { XR_TYPE_SPACE_LOCATION };
+        const XrSpaceLocationFlags need = XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT;
+        if (XR_FAILED(xrLocateSpace(xr_hand_space[h], xr_local, when, &loc)) || (loc.locationFlags & need) != need) continue;
         const float ahead[3] = { 0, 0, -1 };
+        const float at[3] = { loc.pose.position.x, loc.pose.position.y, loc.pose.position.z };
         float r[3], c[3];
         q_rotate(loc.pose.orientation, ahead, r);
         room_to_cockpit(r, c);
-        xin.aim_ok = 1;
-        xin.aim_yaw = atan2f(c[0], -c[2]) * 57.29578f;
-        xin.aim_pitch = atan2f(c[1], sqrtf(c[0] * c[0] + c[2] * c[2])) * 57.29578f;
+        xin.hand_ok[h] = 1;
+        xin.hand_yaw[h] = atan2f(c[0], -c[2]) * 57.29578f;
+        xin.hand_pitch[h] = atan2f(c[1], sqrtf(c[0] * c[0] + c[2] * c[2])) * 57.29578f;
+        room_to_cockpit(at, xin.hand_pos[h]);
     }
 }
 
@@ -838,13 +861,17 @@ static void pump_events(void)
             case SDL_SCANCODE_F2: test_latch = !test_latch; break;
             case SDL_SCANCODE_F4: sndtest_latch = !sndtest_latch; break;
             case SDL_SCANCODE_F8: set_capture(!mouse_captured); break;
-            case SDL_SCANCODE_F9: aim_point = !aim_point; logf("[vr] aim=%s", aim_point ? "point" : "stick"); break;
+            case SDL_SCANCODE_F9:
+                aim_mode = (aim_mode + 1) % 3;
+                yoke_rest_request = 1;
+                logf("[vr] aim=%s", aim_names[aim_mode]);
+                break;
             case SDL_SCANCODE_F10:
                 hud_distance = hud_distance < 1.5f ? 2.0f : hud_distance < 2.5f ? 3.0f : hud_distance < 4.0f ? 5.0f :
                                hud_distance < 7.0f ? 10.0f : 1.0f;
                 logf("[vr] hud_distance=%g", hud_distance);
                 break;
-            case SDL_SCANCODE_HOME: centre_request = 1; break;
+            case SDL_SCANCODE_HOME: centre_request = yoke_rest_request = 1; break;
             case SDL_SCANCODE_PAGEUP: unit_metres *= 1.25f; logf("[vr] unit_metres=%g", unit_metres); break;
             case SDL_SCANCODE_PAGEDOWN: unit_metres /= 1.25f; logf("[vr] unit_metres=%g", unit_metres); break;
             default: break;
@@ -938,10 +965,22 @@ void plat_input_poll(plat_inputs *in)
     {
         const float dz = 0.12f;
         float sx = fabsf(xin.stick_x) < dz ? 0.0f : xin.stick_x, sy = fabsf(xin.stick_y) < dz ? 0.0f : xin.stick_y;
-        if (aim_point && xin.aim_ok) {
-            sx = std::max(-1.0f, std::min(1.0f, xin.aim_yaw / aim_range));
-            sy = std::max(-1.0f, std::min(1.0f, xin.aim_pitch / aim_range));
+        if (aim_mode == AIM_POINT && xin.hand_ok[1]) {
+            sx = xin.hand_yaw[1] / aim_range;
+            sy = xin.hand_pitch[1] / aim_range;
+        } else if (aim_mode == AIM_YOKE && xin.hand_ok[0] && xin.hand_ok[1]) {
+            /* the cabinet's yoke: it turns like a wheel, by the line from
+             * hand to hand, and its handles tilt, by where the two point */
+            const float *l = xin.hand_pos[0], *r = xin.hand_pos[1];
+            const float dx = r[0] - l[0], dy = r[1] - l[1], dz = r[2] - l[2];
+            const float turn = atan2f(-dy, sqrtf(dx * dx + dz * dz)) * 57.29578f;     /* the right hand down: to the right */
+            const float tilt = (xin.hand_pitch[0] + xin.hand_pitch[1]) * 0.5f;
+            if (yoke_rest_request) { yoke_rest = tilt; yoke_rest_request = 0; }
+            sx += turn / yoke_turn;
+            sy += (tilt - yoke_rest) / yoke_tilt;
         }
+        sx = std::max(-1.0f, std::min(1.0f, sx));
+        sy = std::max(-1.0f, std::min(1.0f, sy));
         x += sx * 127.0;
         y -= sy * 127.0 * (invert_pitch ? -1.0 : 1.0);
         if (xin.fire_r > 0.5f) in->fire_r = 1;
@@ -949,7 +988,7 @@ void plat_input_poll(plat_inputs *in)
         if (xin.thumb_r > 0.5f) in->thumb_r = 1;
         if (xin.thumb_l > 0.5f) in->thumb_l = 1;
         if (xin.coin) in->coin_l = 1;
-        if (xin.centre) centre_request = 1;
+        if (xin.centre) centre_request = yoke_rest_request = 1;
     }
 
     if (x < 0.0) x = 0.0;
@@ -1074,10 +1113,10 @@ int main(int argc, char **argv)
     hud_distance = (float)ini_dbl("vr", "hud_distance", hud_distance);
     hud_scale = (float)ini_dbl("vr", "hud_scale", hud_scale);
     aim_range = (float)ini_dbl("vr", "aim_range", aim_range);
-    {
-        const char *a = ini_get("vr", "aim");
-        aim_point = a && !strcmp(a, "point");
-    }
+    yoke_turn = (float)ini_dbl("vr", "yoke_turn", yoke_turn);
+    yoke_tilt = (float)ini_dbl("vr", "yoke_tilt", yoke_tilt);
+    if (const char *a = ini_get("vr", "aim"))
+        for (int k = 0; k < 3; k++) if (!strcmp(a, aim_names[k])) aim_mode = k;
 
     const int headless = turbo || hidden_mode;
     Uint32 sdl_flags = SDL_INIT_TIMER | SDL_INIT_EVENTS;
@@ -1173,7 +1212,7 @@ int main(int argc, char **argv)
     logf("exit: passes %lu, cycles %llu (%.3f s machine, %.3f s wall), pictures %lu, irqs %lu, phase %02X",
          st.passes, (unsigned long long)st.cycles, (double)st.cycles / 1512000.0,
          (plat_now_ms() - t_start) / 1000.0, st.pictures, st.irqs, st.phase);
-    logf("[vr] unit_metres=%g hud_distance=%g aim=%s", unit_metres, hud_distance, aim_point ? "point" : "stick");
+    logf("[vr] unit_metres=%g hud_distance=%g aim=%s", unit_metres, hud_distance, aim_names[aim_mode]);
     sw_app_exit();
     xr_exit();
     if (glctx) SDL_GL_DeleteContext(glctx);

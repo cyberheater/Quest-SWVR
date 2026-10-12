@@ -153,6 +153,11 @@ static int sprite_writer(uint16_t ck, uint16_t dck)
 #define LZ_X0   256.0f               /* the guns' depth */
 #define LZ_XMAX 16384.0f
 
+/* The sight: the two JSRLs VWCURC writes (to its place, and to its picture
+ * at VGSITE+2).  The lasers end under it at LZ_XMAX, so in a picture of the
+ * world that is where it is; over a page of text it stays on the tube. */
+static int sight_writer(uint16_t ck) { return ck == 0xB6CC; }
+
 static void unproject(sw3d_out *o, float x, float sx, float sy)
 {
     o->layer = SW3D_WORLD;
@@ -163,6 +168,7 @@ static void unproject(sw3d_out *o, float x, float sx, float sy)
 
 void sw3d_resolve(const avg_point *pts, uint32_t n, const float *sx, const float *sy, sw3d_out *out)
 {
+    uint32_t n_world = 0;
     for (uint32_t i = 0; i < n; i++) {
         const avg_point *p = &pts[i];
         sw3d_out *o = &out[i];
@@ -183,7 +189,11 @@ void sw3d_resolve(const avg_point *pts, uint32_t n, const float *sx, const float
         } else if ((p->p3_valid == 3 || p->p3_valid == 4) && p3x > 0 && sprite_writer(p->p3_ck, p->p3_dck)) {
             unproject(o, p3x, sx[i], sy[i]);
         }
+        if (o->layer == SW3D_WORLD) n_world++;
     }
+    if (n_world)
+        for (uint32_t i = 0; i < n; i++)
+            if (sight_writer(pts[i].p3_ck)) unproject(&out[i], LZ_XMAX, sx[i], sy[i]);
 
     /* A laser is drawn from a gun to the sight in halves, each half as long
      * as the last: the screen picture of a bolt flying straight ahead.  Its
