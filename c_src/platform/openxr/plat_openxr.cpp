@@ -141,7 +141,7 @@ static unsigned long quit_after_passes;
 static std::string nv_override, script_path, romdir_cli;
 
 /* the cockpit in the room */
-static float unit_metres = 0.02f;     /* one of the game's units */
+static float unit_metres = 0.005f;    /* one of the game's units */
 static float hud_distance = 3.0f;     /* the HUD panel, metres ahead */
 static float hud_scale = 1.0f;        /* 1: the HUD covers the world as on the tube */
 enum { AIM_FLIGHT, AIM_YOKE, AIM_POINT, AIM_STICK, AIM_N };
