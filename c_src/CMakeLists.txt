@@ -16,6 +16,9 @@ set(CMAKE_CXX_STANDARD 17)
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
+if(MSVC)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+endif()
 
 # The 3-D tap (sw3d.h): records where every vector sits in the game's 3-D
 # space.  It only watches; off, the build is the plain port.
@@ -50,7 +53,37 @@ endif()
 if(APPLE)
     target_compile_definitions(sw_sdl PRIVATE GL_SILENCE_DEPRECATION)
 endif()
+if(WIN32)
+    # Windows' own OpenGL headers stop at 1.1: the vendored GLEW has the rest
+    target_sources(sw_sdl PRIVATE platform/windows/glew.c)
+endif()
 
 # The executable lands in c_src/, where the ini, log and NOVRAM live and the
 # default rom_dir (../disasm/build) points.
 set_target_properties(sw_sdl PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+# The same game in a headset (Windows): sw_xr, platform/openxr/plat_openxr.cpp,
+# on OpenXR with OpenGL - a Quest over Quest Link, or any PC headset.  It needs
+# the 3-D tap and the OpenXR loader (vcpkg: openxr-loader).
+if(WIN32 AND SW_3D)
+    find_package(OpenXR CONFIG QUIET)
+endif()
+if(TARGET OpenXR::openxr_loader)
+    add_executable(sw_xr
+        platform/openxr/plat_openxr.cpp platform/windows/glew.c
+        hw.cpp app.cpp port.cpp sw3d.c
+        avg.c mathbox.c x2212.c riot6532.c c012294.c tms5220.cpp)
+    target_include_directories(sw_xr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_definitions(sw_xr PRIVATE SW_3D)
+    target_link_libraries(sw_xr PRIVATE sw_main_prog sw_snd_prog SDL2::SDL2 OpenXR::openxr_loader OpenGL::GL)
+    set_target_properties(sw_xr PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+
+# A multi-configuration generator (Visual Studio) would add Release/ to that
+foreach(t sw_sdl sw_xr)
+    if(TARGET ${t})
+        foreach(c DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+            set_target_properties(${t} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_${c} ${CMAKE_CURRENT_SOURCE_DIR})
+        endforeach()
+    endif()
+endforeach()

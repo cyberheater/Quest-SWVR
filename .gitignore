@@ -45,3 +45,6 @@ docs/superpowers/
 # SDL build (c_src/CMakeLists.txt)
 c_src/build/
 c_src/sw_sdl
+c_src/*.dll
+c_src/sw_sdl.ini
+c_src/sw_xr.ini

@@ -33,6 +33,15 @@ The keys are the same; it reads `sw_sdl.ini` (the same sections as `sw_win.ini`)
 
 The CMake build also has the **3-D tap** (`SW_3D`, on by default; [`sw3d.h`](sw3d.h)): it watches the game's own perspective divides and gives every drawn line its point in the game's 3-D space (TIE fighters, Vader, towers, bunkers, the trench, the Death Star, stars, fireballs, lasers), while scores, messages, the sight and the cockpit stay a flat HUD. **F5** shows the world from a camera of your own: J/L turn, I/K look up and down, U/O step aside, Y/H move ahead and back, R/F rise and fall, 0 back to the cockpit (`--view3d YAW,PITCH,SIDE,BACK,UP` starts there). `SW_DUMP3D=FILE` writes each line with its 3-D ends, and `tools/view3d.py` draws a picture of that from elsewhere. The tap only watches: the machine runs cycle for cycle as without it.
 
+On **Windows** the CMake build works with Visual Studio 2022 and vcpkg (`vcpkg install sdl2:x64-windows openxr-loader:x64-windows`):
+
+```bat
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=<vcpkg>\scripts\buildsystems\vcpkg.cmake
+cmake --build build --config Release
+```
+
+and, with the OpenXR loader found, it also builds **`sw_xr.exe`**: the game in a headset ([`platform/openxr/plat_openxr.cpp`](platform/openxr/plat_openxr.cpp); OpenXR with OpenGL - a Quest over Quest Link or Air Link, or any PC headset). The world is drawn for each eye from where the head is, at the headset's rate; the HUD is on a panel ahead, at the size at which the sight stays on what the guns hit. Either thumbstick is the yoke, the triggers are the triggers, the grips the thumb buttons, A or X a coin, B or Y (or Home) centres the view; the mouse and the keys work as in `sw_sdl` while the window has the focus, and the window shows the left eye. F9 makes the right controller the yoke (point it where the sight should go), PageUp / PageDown change the size of the world, F10 moves the HUD panel. `sw_xr.ini` has the sections of `sw_sdl.ini` and `[vr]`: `unit_metres` (one of the game's units, 0.02), `hud_distance` (3), `hud_scale` (1), `aim` (`stick` or `point`), `aim_range` (degrees, 30), and `runtime` (an OpenXR runtime's `.json`, for when the headset's is not the system's active one). `sw_xr --flat` runs in the window without a headset.
+
 | action | keys |
 |---|---|
 | flight yoke | mouse (it moves the yoke, which stays where it is put); arrow keys (spring back to centre); joystick |

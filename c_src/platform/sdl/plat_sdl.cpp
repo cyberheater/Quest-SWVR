@@ -18,11 +18,15 @@
  * starwars.nv; the ROM images are read from <exe>/../disasm/build unless
  * [main] rom_dir or --romdir say otherwise.
  */
+#ifdef _WIN32
+#define SDL_MAIN_HANDLED                /* main() is main: no SDL2main to link */
+#include "../windows/glew.h"            /* Windows' own headers stop at OpenGL 1.1 */
+#endif
 #include <SDL.h>
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl3.h>
-#else
+#elif !defined(_WIN32)
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glext.h>
@@ -201,6 +205,11 @@ static GLuint compile(GLenum type, const char *src)
 
 static int gl_init(void)
 {
+#ifdef _WIN32
+    glewExperimental = GL_TRUE;                     /* a core profile has no extension string */
+    if (glewInit() != GLEW_OK) { logf("OpenGL: the functions could not be loaded"); return 1; }
+    while (glGetError() != GL_NO_ERROR) { }
+#endif
     prog = glCreateProgram();
     glAttachShader(prog, compile(GL_VERTEX_SHADER, VS));
     glAttachShader(prog, compile(GL_FRAGMENT_SHADER, FS));
@@ -617,6 +626,9 @@ int main(int argc, char **argv)
             argv[0]);
         return 2;
     }
+#ifdef _WIN32
+    SDL_SetMainReady();
+#endif
 
     char *base = SDL_GetBasePath();
     exe_dir = base ? base : "./";
@@ -631,7 +643,8 @@ int main(int argc, char **argv)
         const char *r = ini_get("main", "rom_dir");
         std::string rd = r ? r : "../disasm/build";
         for (auto &c : rd) if (c == '\\') c = '/';
-        path_roms = (!rd.empty() && rd[0] == '/') ? rd : exe_dir + rd;
+        const bool absolute = !rd.empty() && (rd[0] == '/' || (rd.size() > 1 && rd[1] == ':'));
+        path_roms = absolute ? rd : exe_dir + rd;
         if (!romdir_cli.empty()) path_roms = romdir_cli;
     }
     dsw0 = (uint8_t)ini_int("dips", "dsw0", 0x84);
