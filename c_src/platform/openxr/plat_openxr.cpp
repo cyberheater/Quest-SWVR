@@ -38,10 +38,16 @@
  * PageUp / PageDown change unit_metres, - and = the picture's size to the
  * eye (view_scale), F10 moves the HUD panel.
  *
- * A click of either thumbstick shows a slider for the picture's size: the
- * thumbstick moves it, from a fifth smaller at the left to a fifth larger at
- * the right of view_scale in the middle, and a second click puts it away and
- * keeps where it stands ([vr] view_adjust).
+ * A click of either thumbstick shows a menu of sliders; the thumbstick picks
+ * one (up, down) and moves it (left, right), and a second click puts the
+ * menu away and keeps where they stand:
+ *   SIZE   the picture's size, a fifth smaller .. a fifth larger about
+ *          view_scale in the middle                         ([vr] view_adjust)
+ *   DEPTH  how near the world is, and so how deep it is between the eyes:
+ *          four times farther .. four times nearer about unit_metres in the
+ *          middle                                          ([vr] depth_adjust)
+ *   STARS  how far away the stars are, from a sixty-fourth of star_depth at
+ *          the left to star_depth at the right              ([vr] star_adjust)
  *
  * Either hand can hold the flight stick: Y (the left controller's centring
  * button) gives it to the left hand, B to the right.
@@ -186,8 +192,12 @@ static float unit_metres = 0.005f;    /* one of the game's units */
 static float hud_distance = 3.0f;     /* the HUD panel, metres ahead */
 static float hud_scale = 1.0f;        /* 1: the HUD covers the world as on the tube */
 static float view_base = 0.675f;      /* [vr] view_scale: the middle of the size slider */
-static float view_adjust;             /* the slider, -1 .. 1: a fifth smaller .. a fifth larger */
+enum { MENU_SIZE, MENU_DEPTH, MENU_STARS, MENU_N };
+static float menu_at[MENU_N] = { 0.0f, 0.0f, 1.0f };    /* the sliders, each -1 .. 1 */
+static int   menu_row;                /* the one the thumbstick has */
 static int   slider_open;
+static float unit_base = 0.005f;      /* [vr] unit_metres: the middle of the depth slider */
+static float star_far = 65536.0f;     /* [vr] star_depth: the right end of the stars slider; 0: the game's own stars */
 static float view_scale = 0.675f;     /* the whole picture's size to the eye; 1: the tube's own 90 degrees across */
 enum { AIM_FLIGHT, AIM_YOKE, AIM_POINT, AIM_STICK, AIM_N };
 static const char *const aim_names[] = { "flight", "yoke", "point", "stick" };
@@ -421,33 +431,47 @@ static void draw_eye(const eye_xf &E)
         line(a, b, s.rgb, s.in);
     }
 
-    /* the size slider: a track two metres ahead, below the middle, with its
-     * knob, a mark at each end and at the middle, and its name */
+    /* the menu: two metres ahead, below the middle, a row for each slider
+     * with its name, its track with a mark at each end and at the middle,
+     * and its knob; the row the thumbstick has is the bright one */
     if (slider_open) {
-        const float Z = -2.0f, Y0 = -0.30f, W = 0.40f, WHITE_IN = 200;
+        const float Z = -2.0f, W = 0.40f, u = 0.010f;
         const uint32_t white = 0xFFFFFFFFu, yellow = 0xFF00FFFFu;
-        auto at = [&](float x0, float y0, float x1, float y1, uint32_t rgb) {
-            float a[3] = { x0, Y0 + y0, Z }, b[3] = { x1, Y0 + y1, Z };
-            line(a, b, rgb, (int)WHITE_IN);
-        };
-        at(-W, 0, W, 0, white);
-        at(-W, -0.03f, -W, 0.03f, white);
-        at(W, -0.03f, W, 0.03f, white);
-        at(0, -0.05f, 0, 0.05f, white);
-        at(-W - 0.08f, 0, -W - 0.04f, 0, white);                           /* - */
-        at(W + 0.04f, 0, W + 0.08f, 0, white);                             /* + */
-        at(W + 0.06f, -0.02f, W + 0.06f, 0.02f, white);
-        const float k = W * view_adjust, r = 0.03f;
-        at(k - r, 0, k, r, yellow); at(k, r, k + r, 0, yellow);
-        at(k + r, 0, k, -r, yellow); at(k, -r, k - r, 0, yellow);
-        /* SIZE, on a 4 by 6 grid */
+        /* letters on a 4 by 6 grid: -2 lifts the pen, -1 ends */
         static const signed char S_[] = { 4,6, 0,6, 0,3, 4,3, 4,0, 0,0, -1 }, I_[] = { 2,0, 2,6, -1 },
-                                 Z_[] = { 0,6, 4,6, 0,0, 4,0, -1 }, E_[] = { 4,6, 0,6, 0,0, 4,0, -1 }, E2[] = { 0,3, 3,3, -1 };
-        static const struct { const signed char *p; int col; } letters[] = { { S_, 0 }, { I_, 1 }, { Z_, 2 }, { E_, 3 }, { E2, 3 } };
-        const float u = 0.012f, x_left = -(4 * 6 - 2) * u * 0.5f;
-        for (auto &L : letters)
-            for (const signed char *q = L.p; q[2] >= 0; q += 2)
-                at(x_left + (L.col * 6 + q[0]) * u, 0.09f + q[1] * u, x_left + (L.col * 6 + q[2]) * u, 0.09f + q[3] * u, white);
+            Z_[] = { 0,6, 4,6, 0,0, 4,0, -1 }, E_[] = { 4,6, 0,6, 0,0, 4,0, -2, 0,3, 3,3, -1 },
+            D_[] = { 0,0, 0,6, 3,6, 4,5, 4,1, 3,0, 0,0, -1 }, P_[] = { 0,0, 0,6, 4,6, 4,3, 0,3, -1 },
+            T_[] = { 0,6, 4,6, -2, 2,6, 2,0, -1 }, H_[] = { 0,0, 0,6, -2, 4,0, 4,6, -2, 0,3, 4,3, -1 },
+            A_[] = { 0,0, 0,4, 2,6, 4,4, 4,0, -2, 0,3, 4,3, -1 }, R_[] = { 0,0, 0,6, 4,6, 4,3, 0,3, -2, 2,3, 4,0, -1 };
+        static const struct { char c; const signed char *p; } font[] = {
+            { 'S', S_ }, { 'I', I_ }, { 'Z', Z_ }, { 'E', E_ }, { 'D', D_ }, { 'P', P_ }, { 'T', T_ }, { 'H', H_ }, { 'A', A_ }, { 'R', R_ } };
+        static const char *const names[MENU_N] = { "SIZE", "DEPTH", "STARS" };
+        for (int row = 0; row < MENU_N; row++) {
+            const float Y0 = -0.18f - 0.14f * (float)row;
+            const int in = row == menu_row ? 220 : 80;
+            auto at = [&](float x0, float y0, float x1, float y1, uint32_t rgb) {
+                float a[3] = { x0, Y0 + y0, Z }, b[3] = { x1, Y0 + y1, Z };
+                line(a, b, rgb, in);
+            };
+            at(-W, 0, W, 0, white);
+            at(-W, -0.03f, -W, 0.03f, white);
+            at(W, -0.03f, W, 0.03f, white);
+            at(0, -0.04f, 0, 0.04f, white);
+            const float k = W * menu_at[row], r = 0.03f;
+            at(k - r, 0, k, r, yellow); at(k, r, k + r, 0, yellow);
+            at(k + r, 0, k, -r, yellow); at(k, -r, k - r, 0, yellow);
+            /* the name, ending a little left of the track */
+            const char *name = names[row];
+            float x = -W - 0.08f - (float)strlen(name) * 6.0f * u;
+            for (; *name; name++, x += 6.0f * u)
+                for (auto &f : font) {
+                    if (f.c != *name) continue;
+                    for (const signed char *q = f.p; q[2] != -1; q += 2) {
+                        if (q[2] == -2) { q++; continue; }
+                        at(x + q[0] * u, (q[1] - 3) * u, x + q[2] * u, (q[3] - 3) * u, white);
+                    }
+                }
+        }
     }
 
     glViewport(0, 0, E.w, E.h);
@@ -980,8 +1004,8 @@ static void pump_events(void)
             case SDL_SCANCODE_HOME: centre_request = yoke_rest_request = 1; break;
             case SDL_SCANCODE_MINUS: view_base /= 1.1f; logf("[vr] view_scale=%g", view_base); break;
             case SDL_SCANCODE_EQUALS: view_base *= 1.1f; logf("[vr] view_scale=%g", view_base); break;
-            case SDL_SCANCODE_PAGEUP: unit_metres *= 1.25f; logf("[vr] unit_metres=%g", unit_metres); break;
-            case SDL_SCANCODE_PAGEDOWN: unit_metres /= 1.25f; logf("[vr] unit_metres=%g", unit_metres); break;
+            case SDL_SCANCODE_PAGEUP: unit_base *= 1.25f; logf("[vr] unit_metres=%g", unit_base); break;
+            case SDL_SCANCODE_PAGEDOWN: unit_base /= 1.25f; logf("[vr] unit_metres=%g", unit_base); break;
             default: break;
             }
             break;
@@ -998,6 +1022,14 @@ static void pump_events(void)
         default: break;
         }
     }
+}
+
+/* What the menu's sliders stand for. */
+static void menu_apply(void)
+{
+    view_scale = view_base * (1.0f + 0.2f * menu_at[MENU_SIZE]);
+    unit_metres = unit_base * powf(4.0f, -menu_at[MENU_DEPTH]);                 /* to the right: nearer, deeper */
+    sw3d_star_depth(star_far * powf(64.0f, (menu_at[MENU_STARS] - 1.0f) * 0.5f));   /* a sky behind the ships, or nearer */
 }
 
 void plat_input_poll(plat_inputs *in)
@@ -1079,18 +1111,25 @@ void plat_input_poll(plat_inputs *in)
         if (xin.menu && !menu_was) {
             slider_open = !slider_open;
             if (!slider_open) {
-                char v[32];
-                snprintf(v, sizeof v, "%.3f", view_adjust);
-                ini_save(path_ini, "vr", "view_adjust", v);
-                logf("[vr] view_adjust=%s", v);
+                static const char *const keys[MENU_N] = { "view_adjust", "depth_adjust", "star_adjust" };
+                for (int k = 0; k < MENU_N; k++) {
+                    char v[32];
+                    snprintf(v, sizeof v, "%.3f", menu_at[k]);
+                    ini_save(path_ini, "vr", keys[k], v);
+                    logf("[vr] %s=%s", keys[k], v);
+                }
             }
         }
         menu_was = xin.menu;
         if (slider_open) {
-            view_adjust = std::max(-1.0f, std::min(1.0f, view_adjust + sx * (float)dt / 1000.0f));
+            static int stepped;                     /* up or down is one row a push */
+            const int step = sy > 0.6f ? -1 : sy < -0.6f ? 1 : 0;
+            if (step && !stepped) menu_row = (menu_row + step + MENU_N) % MENU_N;
+            stepped = step;
+            if (!step) menu_at[menu_row] = std::max(-1.0f, std::min(1.0f, menu_at[menu_row] + sx * (float)dt / 1000.0f));
             sx = sy = 0.0f;
         }
-        view_scale = view_base * (1.0f + 0.2f * view_adjust);
+        menu_apply();
 
         /* the hand whose centring button was pressed last holds the stick */
         for (int h = 0; h < 2; h++) if (xin.centre_hand[h]) flight_hand = h;
@@ -1273,14 +1312,16 @@ int main(int argc, char **argv)
     key_rate = ini_dbl("input", "key_rate", 400.0);
     invert_pitch = ini_int("input", "invert_pitch", 0);
     volume = ini_int("sound", "volume", 100);
-    unit_metres = (float)ini_dbl("vr", "unit_metres", unit_metres);
+    unit_base = (float)ini_dbl("vr", "unit_metres", unit_base);
     hud_distance = (float)ini_dbl("vr", "hud_distance", hud_distance);
     hud_scale = (float)ini_dbl("vr", "hud_scale", hud_scale);
     view_base = (float)ini_dbl("vr", "view_scale", view_base);
-    view_adjust = std::max(-1.0f, std::min(1.0f, (float)ini_dbl("vr", "view_adjust", 0.0)));
-    view_scale = view_base * (1.0f + 0.2f * view_adjust);
-    /* the stars as a sky behind the ships (0: among them, as the game has them) */
-    sw3d_star_depth((float)ini_dbl("vr", "star_depth", 65536.0));
+    star_far = (float)ini_dbl("vr", "star_depth", star_far);
+    menu_at[MENU_SIZE] = (float)ini_dbl("vr", "view_adjust", menu_at[MENU_SIZE]);
+    menu_at[MENU_DEPTH] = (float)ini_dbl("vr", "depth_adjust", menu_at[MENU_DEPTH]);
+    menu_at[MENU_STARS] = (float)ini_dbl("vr", "star_adjust", menu_at[MENU_STARS]);
+    for (auto &m : menu_at) m = std::max(-1.0f, std::min(1.0f, m));
+    menu_apply();
     aim_range = (float)ini_dbl("vr", "aim_range", aim_range);
     yoke_turn = (float)ini_dbl("vr", "yoke_turn", yoke_turn);
     yoke_lift = (float)ini_dbl("vr", "yoke_lift", yoke_lift);
