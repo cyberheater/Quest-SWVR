@@ -20,9 +20,10 @@
  * Controls in the headset (Touch controllers): the two controllers are the
  * yoke's two handles.  Held level side by side they are the yoke at rest;
  * turned like a steering wheel (one hand up, the other down) they are the
- * yoke turned, and both tilted forward or back they are its handles tilted.
+ * yoke turned, and both raised or lowered they are its handles tilted: up
+ * to climb, down to dive.
  * The triggers are the triggers, the grips the thumb buttons, A or X a coin,
- * B or Y centres the view and takes the handles' tilt now as the yoke's rest.
+ * B or Y centres the view and takes the handles' height now as the yoke's rest.
  * The thumbsticks move the yoke too.  F9 (or [vr] aim) steps through yoke,
  * point (the right controller alone: point it where the sight should go) and
  * stick (the thumbsticks only).  The mouse, the
@@ -140,8 +141,8 @@ enum { AIM_YOKE, AIM_POINT, AIM_STICK };
 static const char *const aim_names[] = { "yoke", "point", "stick" };
 static int   aim_mode = AIM_YOKE;     /* what the controllers' poses do */
 static float aim_range = 30.0f;       /* point: degrees off straight ahead for the yoke's full travel */
-static float yoke_turn = 40.0f;       /* yoke: degrees of turn, and of tilt, for its full travel */
-static float yoke_tilt = 30.0f;
+static float yoke_turn = 40.0f;       /* yoke: degrees of turn for its full travel */
+static float yoke_lift = 0.15f;       /* yoke: metres the hands rise or fall for its full travel */
 
 static int parse_args(int argc, char **argv)
 {
@@ -436,7 +437,7 @@ static struct {
     float hand_yaw[2], hand_pitch[2];   /* where each points, degrees: right, up, in the cockpit */
     float hand_pos[2][3];               /* where each is, the cockpit's axes */
 } xin;
-static int   yoke_rest_request = 1;     /* take the handles' tilt now as the yoke's rest */
+static int   yoke_rest_request = 1;     /* take the handles' height now as the yoke's rest */
 static float yoke_rest;
 
 /* where the cockpit is in the room: the game's camera, and the way it faces */
@@ -970,14 +971,14 @@ void plat_input_poll(plat_inputs *in)
             sy = xin.hand_pitch[1] / aim_range;
         } else if (aim_mode == AIM_YOKE && xin.hand_ok[0] && xin.hand_ok[1]) {
             /* the cabinet's yoke: it turns like a wheel, by the line from
-             * hand to hand, and its handles tilt, by where the two point */
+             * hand to hand; the hands' height stands for its handles' tilt */
             const float *l = xin.hand_pos[0], *r = xin.hand_pos[1];
             const float dx = r[0] - l[0], dy = r[1] - l[1], dz = r[2] - l[2];
             const float turn = atan2f(-dy, sqrtf(dx * dx + dz * dz)) * 57.29578f;     /* the right hand down: to the right */
-            const float tilt = (xin.hand_pitch[0] + xin.hand_pitch[1]) * 0.5f;
-            if (yoke_rest_request) { yoke_rest = tilt; yoke_rest_request = 0; }
+            const float lift = (l[1] + r[1]) * 0.5f;
+            if (yoke_rest_request) { yoke_rest = lift; yoke_rest_request = 0; }
             sx += turn / yoke_turn;
-            sy += (tilt - yoke_rest) / yoke_tilt;
+            sy += (lift - yoke_rest) / yoke_lift;
         }
         sx = std::max(-1.0f, std::min(1.0f, sx));
         sy = std::max(-1.0f, std::min(1.0f, sy));
@@ -1114,7 +1115,7 @@ int main(int argc, char **argv)
     hud_scale = (float)ini_dbl("vr", "hud_scale", hud_scale);
     aim_range = (float)ini_dbl("vr", "aim_range", aim_range);
     yoke_turn = (float)ini_dbl("vr", "yoke_turn", yoke_turn);
-    yoke_tilt = (float)ini_dbl("vr", "yoke_tilt", yoke_tilt);
+    yoke_lift = (float)ini_dbl("vr", "yoke_lift", yoke_lift);
     if (const char *a = ini_get("vr", "aim"))
         for (int k = 0; k < 3; k++) if (!strcmp(a, aim_names[k])) aim_mode = k;
 
