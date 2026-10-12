@@ -35,7 +35,8 @@
  * point (the right controller alone: point it where the sight should go) and
  * stick (the thumbsticks only).  The mouse, the
  * keys and a game controller work as in sw_sdl while the window has the focus.
- * PageUp / PageDown change unit_metres, F10 moves the HUD panel.
+ * PageUp / PageDown change unit_metres, - and = the picture's size to the
+ * eye (view_scale), F10 moves the HUD panel.
  *
  * --flat runs without a headset: one eye at the cockpit's own camera, in the
  * window.  The window shows the left eye otherwise.
@@ -144,6 +145,7 @@ static std::string nv_override, script_path, romdir_cli;
 static float unit_metres = 0.005f;    /* one of the game's units */
 static float hud_distance = 3.0f;     /* the HUD panel, metres ahead */
 static float hud_scale = 1.0f;        /* 1: the HUD covers the world as on the tube */
+static float view_scale = 0.75f;      /* the whole picture's size to the eye; 1: the tube's own 90 degrees across */
 enum { AIM_FLIGHT, AIM_YOKE, AIM_POINT, AIM_STICK, AIM_N };
 static const char *const aim_names[] = { "flight", "yoke", "point", "stick" };
 static int   aim_mode = AIM_FLIGHT;   /* what the controllers' poses do */
@@ -299,9 +301,9 @@ struct eye_xf {
 /* The cockpit's own camera: the tube's window on the world, exactly. */
 static eye_xf tube_eye(int w, int h)
 {
+    const float kx = view_scale / SW_PROJ_XK, ky = view_scale * TUBE_ASPECT / SW_PROJ_YK;
     eye_xf E = { { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } }, { 0, 0, 0 },
-                 -SW_PROJ_X0 / SW_PROJ_XK, (250.0f - SW_PROJ_X0) / SW_PROJ_XK,
-                 TUBE_ASPECT * SW_PROJ_Y0 / SW_PROJ_YK, -TUBE_ASPECT * (280.0f - SW_PROJ_Y0) / SW_PROJ_YK, w, h };
+                 -SW_PROJ_X0 * kx, (250.0f - SW_PROJ_X0) * kx, SW_PROJ_Y0 * ky, -(280.0f - SW_PROJ_Y0) * ky, w, h };
     return E;
 }
 
@@ -360,12 +362,16 @@ static void draw_eye(const eye_xf &E)
         }
     };
 
-    const float S = unit_metres, SZ = unit_metres * TUBE_ASPECT;
+    /* view_scale draws everything that much nearer the middle at its own
+     * depth: the picture is smaller to the eye, and the HUD still covers
+     * the world as it does on the tube */
+    const float S = unit_metres, SY = S * view_scale, SZ = SY * TUBE_ASPECT;
     for (auto &s : shown3) {
-        float a[3] = { s.a[1] * S, s.a[2] * SZ, -s.a[0] * S }, b[3] = { s.b[1] * S, s.b[2] * SZ, -s.b[0] * S };
+        float a[3] = { s.a[1] * SY, s.a[2] * SZ, -s.a[0] * S }, b[3] = { s.b[1] * SY, s.b[2] * SZ, -s.b[0] * S };
         line(a, b, s.rgb, s.in);
     }
-    const float D = hud_distance, kx = hud_scale * D / SW_PROJ_XK, ky = hud_scale * D * TUBE_ASPECT / SW_PROJ_YK;
+    const float D = hud_distance, kx = view_scale * hud_scale * D / SW_PROJ_XK,
+                ky = view_scale * hud_scale * D * TUBE_ASPECT / SW_PROJ_YK;
     for (auto &s : shown) {
         float a[3] = { (s.x0 - SW_PROJ_X0) * kx, (SW_PROJ_Y0 - s.y0) * ky, -D };
         float b[3] = { (s.x1 - SW_PROJ_X0) * kx, (SW_PROJ_Y0 - s.y1) * ky, -D };
@@ -893,6 +899,8 @@ static void pump_events(void)
                 logf("[vr] hud_distance=%g", hud_distance);
                 break;
             case SDL_SCANCODE_HOME: centre_request = yoke_rest_request = 1; break;
+            case SDL_SCANCODE_MINUS: view_scale /= 1.1f; logf("[vr] view_scale=%g", view_scale); break;
+            case SDL_SCANCODE_EQUALS: view_scale *= 1.1f; logf("[vr] view_scale=%g", view_scale); break;
             case SDL_SCANCODE_PAGEUP: unit_metres *= 1.25f; logf("[vr] unit_metres=%g", unit_metres); break;
             case SDL_SCANCODE_PAGEDOWN: unit_metres /= 1.25f; logf("[vr] unit_metres=%g", unit_metres); break;
             default: break;
@@ -1152,6 +1160,7 @@ int main(int argc, char **argv)
     unit_metres = (float)ini_dbl("vr", "unit_metres", unit_metres);
     hud_distance = (float)ini_dbl("vr", "hud_distance", hud_distance);
     hud_scale = (float)ini_dbl("vr", "hud_scale", hud_scale);
+    view_scale = (float)ini_dbl("vr", "view_scale", view_scale);
     aim_range = (float)ini_dbl("vr", "aim_range", aim_range);
     yoke_turn = (float)ini_dbl("vr", "yoke_turn", yoke_turn);
     yoke_lift = (float)ini_dbl("vr", "yoke_lift", yoke_lift);
@@ -1255,7 +1264,7 @@ int main(int argc, char **argv)
     logf("exit: passes %lu, cycles %llu (%.3f s machine, %.3f s wall), pictures %lu, irqs %lu, phase %02X",
          st.passes, (unsigned long long)st.cycles, (double)st.cycles / 1512000.0,
          (plat_now_ms() - t_start) / 1000.0, st.pictures, st.irqs, st.phase);
-    logf("[vr] unit_metres=%g hud_distance=%g aim=%s", unit_metres, hud_distance, aim_names[aim_mode]);
+    logf("[vr] unit_metres=%g view_scale=%g hud_distance=%g aim=%s", unit_metres, view_scale, hud_distance, aim_names[aim_mode]);
     sw_app_exit();
     xr_exit();
     if (glctx) SDL_GL_DeleteContext(glctx);
