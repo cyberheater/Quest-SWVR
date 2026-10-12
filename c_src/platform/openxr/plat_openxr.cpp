@@ -38,9 +38,10 @@
  * PageUp / PageDown change unit_metres, - and = the picture's size to the
  * eye (view_scale), F10 moves the HUD panel.
  *
- * A click of either thumbstick shows a menu of sliders; the thumbstick picks
- * one (up, down) and moves it (left, right), and a second click puts the
- * menu away and keeps where they stand:
+ * A click of either thumbstick stops the game and shows a menu of sliders
+ * over it, the game at half brightness; the thumbstick picks one (up, down)
+ * and moves it (left, right), and a second click puts the menu away, keeps
+ * where they stand, and lets the game go on a quarter of a second later:
  *   SIZE   the picture's size, a fifth smaller .. a fifth larger about
  *          view_scale in the middle                         ([vr] view_adjust)
  *   DEPTH  how near the world is, and so how deep it is between the eyes:
@@ -198,6 +199,12 @@ static int   menu_row;                /* the one the thumbstick has */
 static int   slider_open;
 static float unit_base = 0.005f;      /* [vr] unit_metres: the middle of the depth slider */
 static float star_far = 65536.0f;     /* [vr] star_depth: the right end of the stars slider; 0: the game's own stars */
+/* The resolver is asked to put the stars at this depth, which nothing else
+ * has, so that the picture's stars can be told and drawn at star_now: the
+ * stars slider then moves them in a picture already made, with the machine
+ * stopped. */
+#define STAR_TAG 1048576.0f
+static float star_now = 65536.0f;
 static float view_scale = 0.675f;     /* the whole picture's size to the eye; 1: the tube's own 90 degrees across */
 enum { AIM_FLIGHT, AIM_YOKE, AIM_POINT, AIM_STICK, AIM_N };
 static const char *const aim_names[] = { "flight", "yoke", "point", "stick" };
@@ -373,6 +380,7 @@ static void draw_eye(const eye_xf &E)
     const float hx = (px * 0.5f + 1.0f) * 2.0f / (float)E.w;
     const float hy = (px * 0.5f + 1.0f) * 2.0f / (float)E.h;
 
+    float gain = slider_open ? 0.5f : 1.0f;         /* the game at half brightness under the menu */
     verts.clear();
     auto line = [&](const float *ca, const float *cb, uint32_t rgb, int in) {
         float a[3], b[3];
@@ -399,7 +407,7 @@ static void draw_eye(const eye_xf &E)
         if (len < 1e-4f) { dx = 1.0f; dy = 0.0f; } else { dx /= len; dy /= len; }
         float nx = -dy, ny = dx;
         float r = (rgb & 0xFF) / 255.0f, g = ((rgb >> 8) & 0xFF) / 255.0f, bl = ((rgb >> 16) & 0xFF) / 255.0f;
-        float al = (float)in / 255.0f * brightness;
+        float al = (float)in / 255.0f * brightness * gain;
         /* the four corners, each end extended by one half width */
         float P[4][4] = {
             { ax + (-dx + nx) * hx, ay + (-dy + ny) * hy, -1.0f,  1.0f },
@@ -419,8 +427,10 @@ static void draw_eye(const eye_xf &E)
      * depth: the picture is smaller to the eye, and the HUD still covers
      * the world as it does on the tube */
     const float S = unit_metres, SY = S * view_scale, SZ = SY * TUBE_ASPECT;
+    const float star = star_now / STAR_TAG;
     for (auto &s : shown3) {
-        float a[3] = { s.a[1] * SY, s.a[2] * SZ, -s.a[0] * S }, b[3] = { s.b[1] * SY, s.b[2] * SZ, -s.b[0] * S };
+        const float k = s.a[0] == STAR_TAG && s.b[0] == STAR_TAG ? star : 1.0f;
+        float a[3] = { s.a[1] * SY * k, s.a[2] * SZ * k, -s.a[0] * S * k }, b[3] = { s.b[1] * SY * k, s.b[2] * SZ * k, -s.b[0] * S * k };
         line(a, b, s.rgb, s.in);
     }
     const float D = hud_distance, kx = view_scale * hud_scale * D / SW_PROJ_XK,
@@ -435,6 +445,7 @@ static void draw_eye(const eye_xf &E)
      * with its name, its track with a mark at each end and at the middle,
      * and its knob; the row the thumbstick has is the bright one */
     if (slider_open) {
+        gain = 1.0f;
         const float Z = -2.0f, W = 0.40f, u = 0.010f;
         const uint32_t white = 0xFFFFFFFFu, yellow = 0xFF00FFFFu;
         /* letters on a 4 by 6 grid: -2 lifts the pen, -1 ends */
@@ -1029,8 +1040,47 @@ static void menu_apply(void)
 {
     view_scale = view_base * (1.0f + 0.2f * menu_at[MENU_SIZE]);
     unit_metres = unit_base * powf(4.0f, -menu_at[MENU_DEPTH]);                 /* to the right: nearer, deeper */
-    sw3d_star_depth(star_far * powf(64.0f, (menu_at[MENU_STARS] - 1.0f) * 0.5f));   /* a sky behind the ships, or nearer */
+    star_now = star_far * powf(64.0f, (menu_at[MENU_STARS] - 1.0f) * 0.5f);     /* a sky behind the ships, or nearer */
+    sw3d_star_depth(star_far > 0.0f ? STAR_TAG : 0.0f);
 }
+
+/* The menu: a thumbstick's click shows it and stops the machine, a second
+ * click puts it away, and the machine goes on a quarter of a second later.
+ * Called every turn of the main loop, whether the machine runs or not. */
+static double resume_at;
+
+static void menu_update(double now)
+{
+    static int menu_was, stepped;
+    static double last;
+    const double dt = last > 0.0 ? std::min(100.0, std::max(0.0, now - last)) : 0.0;
+    last = now;
+    if (xin.menu && !menu_was) {
+        slider_open = !slider_open;
+        if (!slider_open) {
+            static const char *const keys[MENU_N] = { "view_adjust", "depth_adjust", "star_adjust" };
+            for (int k = 0; k < MENU_N; k++) {
+                char v[32];
+                snprintf(v, sizeof v, "%.3f", menu_at[k]);
+                ini_save(path_ini, "vr", keys[k], v);
+                logf("[vr] %s=%s", keys[k], v);
+            }
+            resume_at = now + 250.0;
+        }
+    }
+    menu_was = xin.menu;
+    if (slider_open) {
+        const float dz = 0.12f;
+        const float sx = fabsf(xin.stick_x) < dz ? 0.0f : xin.stick_x;
+        const int step = xin.stick_y > 0.6f ? -1 : xin.stick_y < -0.6f ? 1 : 0;      /* up or down is one row a push */
+        if (step && !stepped) menu_row = (menu_row + step + MENU_N) % MENU_N;
+        stepped = step;
+        if (!step) menu_at[menu_row] = std::max(-1.0f, std::min(1.0f, menu_at[menu_row] + sx * (float)dt / 1000.0f));
+    }
+    menu_apply();
+}
+
+static int machine_stopped(double now) { return slider_open || now < resume_at; }
 
 void plat_input_poll(plat_inputs *in)
 {
@@ -1106,30 +1156,7 @@ void plat_input_poll(plat_inputs *in)
         const float dz = 0.12f;
         float sx = fabsf(xin.stick_x) < dz ? 0.0f : xin.stick_x, sy = fabsf(xin.stick_y) < dz ? 0.0f : xin.stick_y;
 
-        /* a thumbstick's click: the size slider, which has the thumbsticks while it shows */
-        static int menu_was;
-        if (xin.menu && !menu_was) {
-            slider_open = !slider_open;
-            if (!slider_open) {
-                static const char *const keys[MENU_N] = { "view_adjust", "depth_adjust", "star_adjust" };
-                for (int k = 0; k < MENU_N; k++) {
-                    char v[32];
-                    snprintf(v, sizeof v, "%.3f", menu_at[k]);
-                    ini_save(path_ini, "vr", keys[k], v);
-                    logf("[vr] %s=%s", keys[k], v);
-                }
-            }
-        }
-        menu_was = xin.menu;
-        if (slider_open) {
-            static int stepped;                     /* up or down is one row a push */
-            const int step = sy > 0.6f ? -1 : sy < -0.6f ? 1 : 0;
-            if (step && !stepped) menu_row = (menu_row + step + MENU_N) % MENU_N;
-            stepped = step;
-            if (!step) menu_at[menu_row] = std::max(-1.0f, std::min(1.0f, menu_at[menu_row] + sx * (float)dt / 1000.0f));
-            sx = sy = 0.0f;
-        }
-        menu_apply();
+        if (slider_open) sx = sy = 0.0f;            /* the menu has the thumbsticks */
 
         /* the hand whose centring button was pressed last holds the stick */
         for (int h = 0; h < 2; h++) if (xin.centre_hand[h]) flight_hand = h;
@@ -1389,7 +1416,8 @@ int main(int argc, char **argv)
         if (xr_inst) xr_events(&g_quit);
         if (g_quit) break;
         double now = plat_now_ms();
-        sw_app_run(now);
+        menu_update(now);
+        if (!machine_stopped(now)) sw_app_run(now);
         sw_app_get_stats(&st);
         if (quit_after_passes && st.passes >= quit_after_passes) g_quit = 1;
         if (st.script_ended) g_quit = 1;
