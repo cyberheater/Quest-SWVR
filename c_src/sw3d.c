@@ -138,7 +138,7 @@ void sw3d_stats(unsigned long *divides, unsigned long *tagged)
 #define SXK SW_PROJ_XK
 #define SY0 SW_PROJ_Y0
 #define SYK SW_PROJ_YK
-#define FIT 4.0f                     /* how near a full point's projection must land */
+#define FIT 2.0f                     /* how near a full point's projection must land */
 
 /* The writers (g.ck at the vector RAM write) by what they draw */
 static int laser_writer(uint16_t ck) { return ck >= 0xAEC4 && ck <= 0xB044; }     /* VWLAZ, LAZVW */

@@ -11,6 +11,8 @@
  * turns the 3-D view on and off; J/L turn, I/K look up and down, U/O step
  * aside, Y/H move ahead and back, R/F rise and fall, 0 puts the camera back
  * in the cockpit.  --view3d YAW,PITCH,SIDE,BACK,UP starts with it on there.
+ * In the 3-D view F6 steps through one eye, the two eyes side by side, and
+ * red/cyan glasses, and F7 colours the world by distance.
  *
  * Paths: the executable's own folder (SDL_GetBasePath) holds sw_sdl.ini and
  * starwars.nv; the ROM images are read from <exe>/../disasm/build unless
@@ -25,6 +27,7 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 #endif
+#include <algorithm>
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
@@ -111,6 +114,9 @@ static FILE    *dump_file;
  * game's units in viewer space (side to the right, back, up) */
 static int   view3;
 static float cam_yaw, cam_pitch, cam_side, cam_back, cam_up;
+static int   stereo;              /* F6: 0 one eye, 1 side by side, 2 red/cyan */
+static int   depth_colour;        /* F7: near red to far blue, the HUD grey */
+static float eye_sep = 40.0f;     /* between the eyes, game units */
 
 static int parse_args(int argc, char **argv)
 {
@@ -127,6 +133,8 @@ static int parse_args(int argc, char **argv)
         else if (!strcmp(a, "--nvram") && i + 1 < argc) nv_override = argv[++i];
         else if (!strcmp(a, "--quit-after-ms") && i + 1 < argc) quit_after_ms = atof(argv[++i]);
         else if (!strcmp(a, "--passes") && i + 1 < argc) quit_after_passes = strtoul(argv[++i], nullptr, 0);
+        else if (!strcmp(a, "--stereo") && i + 1 < argc) stereo = atoi(argv[++i]) % 3;
+        else if (!strcmp(a, "--depth-colours")) depth_colour = 1;
         else if (!strcmp(a, "--view3d") && i + 1 < argc) {
             view3 = 1;
             sscanf(argv[++i], "%f,%f,%f,%f,%f", &cam_yaw, &cam_pitch, &cam_side, &cam_back, &cam_up);
@@ -154,7 +162,7 @@ static SDL_GLContext glctx;
 static GLuint prog, vao, vbo;
 static float  brightness = 1.6f, linewidth = 2.0f;
 
-struct seg { float x0, y0, x1, y1; uint32_t rgb; int in; };
+struct seg { float x0, y0, x1, y1; uint32_t rgb; int in; int eye = -1; };   /* eye: -1 both, 0 left, 1 right */
 static std::vector<seg> building, shown;
 struct seg3 { float a[3], b[3]; uint32_t rgb; int in; };
 static std::vector<seg3> building3;
@@ -225,32 +233,49 @@ void plat_video_line3(const float a[3], const float b[3], uint32_t rgb, int inte
     building3.push_back({ { a[0], a[1], a[2] }, { b[0], b[1], b[2] }, rgb, intensity });
 }
 
-/* The world as the camera sees it, on the tube's own projection. */
+/* near red, through green, to far blue */
+static uint32_t depth_rgb(float x)
+{
+    float t = std::log2(std::max(x, 64.0f) / 64.0f) / 8.0f;       /* 64 .. 16384 */
+    t = std::min(1.0f, t);
+    float r = std::max(0.0f, 1.0f - 2.0f * t), g = 1.0f - std::fabs(2.0f * t - 1.0f), b = std::max(0.0f, 2.0f * t - 1.0f);
+    return 0xFF000000u | (uint32_t)(r * 255) | (uint32_t)(g * 255) << 8 | (uint32_t)(b * 255) << 16;
+}
+
+/* The world as the camera sees it, on the tube's own projection, once per eye. */
 static void view_world(void)
 {
     const float d2r = 3.14159265f / 180.0f;
     const float cy = cosf(cam_yaw * d2r), sy = sinf(cam_yaw * d2r);
     const float cp = cosf(cam_pitch * d2r), sp = sinf(cam_pitch * d2r);
     const float NEAR = 20.0f;
-    auto cam = [&](const float *p, float *o) {
-        float x = p[0] + cam_back, y = p[1] - cam_side, z = p[2] - cam_up;
-        float x1 = x * cy - y * sy, y1 = x * sy + y * cy;
-        o[0] = x1 * cp - z * sp; o[1] = y1; o[2] = x1 * sp + z * cp;
-    };
-    for (auto &s : building3) {
-        float a[3], b[3];
-        cam(s.a, a);
-        cam(s.b, b);
-        if (a[0] < NEAR && b[0] < NEAR) continue;
-        if (a[0] < NEAR || b[0] < NEAR) {
-            float t = (NEAR - a[0]) / (b[0] - a[0]);
-            float *n = a[0] < NEAR ? a : b;
-            for (int k = 0; k < 3; k++) n[k] = a[k] + (b[k] - a[k]) * t;
-            n[0] = NEAR;
+    const int eyes = stereo ? 2 : 1;
+    if (depth_colour)
+        for (auto &s : building) s.rgb = 0xFF808080u;
+    for (int e = 0; e < eyes; e++) {
+        const float eye = stereo ? (e ? 0.5f : -0.5f) * eye_sep : 0.0f;
+        auto cam = [&](const float *p, float *o) {
+            float x = p[0] + cam_back, y = p[1] - cam_side, z = p[2] - cam_up;
+            float x1 = x * cy - y * sy, y1 = x * sy + y * cy;
+            o[0] = x1 * cp - z * sp; o[1] = y1 - eye; o[2] = x1 * sp + z * cp;
+        };
+        for (auto &s : building3) {
+            float a[3], b[3];
+            cam(s.a, a);
+            cam(s.b, b);
+            if (a[0] < NEAR && b[0] < NEAR) continue;
+            if (a[0] < NEAR || b[0] < NEAR) {
+                float t = (NEAR - a[0]) / (b[0] - a[0]);
+                float *n = a[0] < NEAR ? a : b;
+                for (int k = 0; k < 3; k++) n[k] = a[k] + (b[k] - a[k]) * t;
+                n[0] = NEAR;
+            }
+            seg o = { SW_PROJ_X0 + SW_PROJ_XK * a[1] / a[0], SW_PROJ_Y0 - SW_PROJ_YK * a[2] / a[0],
+                      SW_PROJ_X0 + SW_PROJ_XK * b[1] / b[0], SW_PROJ_Y0 - SW_PROJ_YK * b[2] / b[0],
+                      depth_colour ? depth_rgb((s.a[0] + s.b[0]) * 0.5f) : s.rgb, s.in };
+            o.eye = stereo ? e : -1;
+            building.push_back(o);
         }
-        building.push_back({ SW_PROJ_X0 + SW_PROJ_XK * a[1] / a[0], SW_PROJ_Y0 - SW_PROJ_YK * a[2] / a[0],
-                             SW_PROJ_X0 + SW_PROJ_XK * b[1] / b[0], SW_PROJ_Y0 - SW_PROJ_YK * b[2] / b[0],
-                             s.rgb, s.in });
     }
 }
 
@@ -274,7 +299,7 @@ void plat_video_line(float x0, float y0, float x1, float y1, uint32_t rgb, int i
 
 void plat_video_present(void)
 {
-    view_world();
+    if (view3) view_world();
     shown.swap(building);
     present_pending = 1;
     n_pictures++;
@@ -287,17 +312,14 @@ void plat_video_present(void)
     }
 }
 
-/* The tube shows x 0..250, y 0..280 (top to bottom) on a 4:3 screen. */
-static void draw_picture(void)
+/* The tube shows x 0..250, y 0..280 (top to bottom) on a 4:3 screen: one
+ * eye's lines into the viewport at (x0, y0, w, h). */
+static void draw_eye(int eye, int x0, int y0, int w, int h, int grey)
 {
-    int dw, dh;
-    SDL_GL_GetDrawableSize(win, &dw, &dh);
-    int vw = dw, vh = dw * 3 / 4;
-    if (vh > dh) { vh = dh; vw = dh * 4 / 3; }
-    glViewport(0, 0, dw, dh);
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glViewport((dw - vw) / 2, (dh - vh) / 2, vw, vh);
+    int vw = w, vh = w * 3 / 4;
+    if (vh > h) { vh = h; vw = h * 4 / 3; }
+    glViewport(x0 + (w - vw) / 2, y0 + (h - vh) / 2, vw, vh);
+    glScissor(x0 + (w - vw) / 2, y0 + (h - vh) / 2, vw, vh);     /* lines run past the tube's edge */
 
     /* half width in NDC, from [vector] linewidth = pixels at a 960-wide picture */
     const float px = linewidth * (float)vw / 960.0f;
@@ -307,6 +329,7 @@ static void draw_picture(void)
     std::vector<float> v;
     v.reserve(shown.size() * 6 * 8);
     for (auto &s : shown) {
+        if (s.eye >= 0 && s.eye != eye) continue;
         float ax = s.x0 / 250.0f * 2.0f - 1.0f, ay = 1.0f - s.y0 / 280.0f * 2.0f;
         float bx = s.x1 / 250.0f * 2.0f - 1.0f, by = 1.0f - s.y1 / 280.0f * 2.0f;
         /* direction in pixels, so the width is even whatever the aspect */
@@ -315,6 +338,7 @@ static void draw_picture(void)
         if (len < 1e-4f) { dx = 1.0f; dy = 0.0f; } else { dx /= len; dy /= len; }
         float nx = -dy, ny = dx;
         float r = (s.rgb & 0xFF) / 255.0f, g = ((s.rgb >> 8) & 0xFF) / 255.0f, b = ((s.rgb >> 16) & 0xFF) / 255.0f;
+        if (grey) r = g = b = std::max(r, std::max(g, b));     /* each eye sees every colour */
         float a = (float)s.in / 255.0f * brightness;
         /* the four corners, each end extended by one half width */
         float P[4][4] = {
@@ -330,13 +354,37 @@ static void draw_picture(void)
             v.insert(v.end(), { p[0], p[1], 0.0f, p[3], r, g, b, a });
         }
     }
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(v.size() * sizeof(float)), v.data(), GL_STREAM_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(v.size() / 8));
+}
+
+static void draw_picture(void)
+{
+    int dw, dh;
+    SDL_GL_GetDrawableSize(win, &dw, &dh);
+    glViewport(0, 0, dw, dh);
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(prog);
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(v.size() * sizeof(float)), v.data(), GL_STREAM_DRAW);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
-    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(v.size() / 8));
+    glEnable(GL_SCISSOR_TEST);
+    const int st = view3 ? stereo : 0;
+    if (st == 1) {                                  /* left eye on the left */
+        draw_eye(0, 0, 0, dw / 2, dh, 0);
+        draw_eye(1, dw / 2, 0, dw - dw / 2, dh, 0);
+    } else if (st == 2) {                           /* left red, right cyan */
+        glColorMask(GL_TRUE, GL_FALSE, GL_FALSE, GL_TRUE);
+        draw_eye(0, 0, 0, dw, dh, 1);
+        glColorMask(GL_FALSE, GL_TRUE, GL_TRUE, GL_TRUE);
+        draw_eye(1, 0, 0, dw, dh, 1);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    } else {
+        draw_eye(0, 0, 0, dw, dh, 0);
+    }
+    glDisable(GL_SCISSOR_TEST);
     SDL_GL_SwapWindow(win);
 }
 
@@ -384,6 +432,8 @@ static void pump_events(void)
             case SDL_SCANCODE_F4: sndtest_latch = !sndtest_latch; break;
             case SDL_SCANCODE_F8: set_capture(!mouse_captured); break;
             case SDL_SCANCODE_F5: view3 = !view3; break;
+            case SDL_SCANCODE_F6: stereo = (stereo + 1) % 3; break;
+            case SDL_SCANCODE_F7: depth_colour = !depth_colour; break;
             case SDL_SCANCODE_RETURN:
                 if (e.key.keysym.mod & (KMOD_ALT | KMOD_GUI)) {
                     Uint32 fs = SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN_DESKTOP;
@@ -563,7 +613,7 @@ int main(int argc, char **argv)
         fprintf(stderr,
             "usage: %s [--rev 1|2] [--romdir DIR] [--test] [--nvram FILE] [--no-nvram]\n"
             "  testing: [--script FILE] [--passes N] [--quit-after-ms MS] [--turbo] [--hidden] [--dump FILE]\n"
-            "  3-D:     [--view3d YAW,PITCH,SIDE,BACK,UP]\n",
+            "  3-D:     [--view3d YAW,PITCH,SIDE,BACK,UP] [--stereo 0|1|2] [--depth-colours]\n",
             argv[0]);
         return 2;
     }

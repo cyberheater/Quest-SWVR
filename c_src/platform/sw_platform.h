@@ -40,12 +40,13 @@ void plat_video_present(void);
  * viewer space: x the depth ahead, y across to the right, z up, in the
  * game's units.  The cabinet's own camera is at the origin looking along x;
  * it puts a point on the tube at SW_PROJ_X0 + SW_PROJ_XK * y / x across and
- * SW_PROJ_Y0 - SW_PROJ_YK * z / x down (fitted to the beam).  The HUD
- * (scores, messages, sight, cockpit) still comes through plat_video_line. */
-#define SW_PROJ_X0 124.4f
-#define SW_PROJ_XK 126.8f
-#define SW_PROJ_Y0 166.2f
-#define SW_PROJ_YK 123.75f
+ * SW_PROJ_Y0 - SW_PROJ_YK * z / x down (the game's 512 * y / x at the AVG's
+ * 255/1024 scale).  The HUD (scores, messages, sight, cockpit) still comes
+ * through plat_video_line. */
+#define SW_PROJ_X0 125.0f
+#define SW_PROJ_XK 127.5f
+#define SW_PROJ_Y0 165.8984f
+#define SW_PROJ_YK 127.5f
 int  plat_video_3d(void);
 void plat_video_line3(const float a[3], const float b[3], uint32_t rgb, int intensity);
 
