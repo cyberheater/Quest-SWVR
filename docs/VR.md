@@ -261,7 +261,7 @@ PC once.
 
 ### What you need
 
-- A Quest 2, 3, 3S or Pro (tried on a Quest 3 only)
+- A Quest: the original, 2, 3, 3S or Pro (tried on the original and on a Quest 3)
 - A PC and a USB cable, for the one-time install
 - Your own `starwars.zip`, the MAME `starwars` ROM set, as it is
 

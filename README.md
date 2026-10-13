@@ -14,7 +14,7 @@ arithmetic put it in space.
 
 **No ROM data is included.** You need your own MAME `starwars` ROM set.
 
-Tried on a Quest 3. It should run on a Quest 2, 3S and Pro as well.
+Tried on the original Quest and on a Quest 3. It should run on a Quest 2, 3S and Pro as well.
 
 ## Install
 
