@@ -3,8 +3,8 @@
      (plat_openxr.cpp on Android), no Java.  build_quest.ps1 packs it. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.cyberheater.starwars"
-    android:versionCode="3"
-    android:versionName="0.3"
+    android:versionCode="4"
+    android:versionName="0.3.1"
     android:installLocation="auto">
 
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="32" />
@@ -31,7 +31,9 @@
         android:hasCode="false"
         android:allowBackup="false"
         android:extractNativeLibs="true">
-        <meta-data android:name="com.oculus.supportedDevices" android:value="quest2|questpro|quest3|quest3s" />
+        <!-- only the names the original Quest's last system software (v50) knows: it stops the
+             app, "Unknown device to support", at any other.  Later headsets run it all the same. -->
+        <meta-data android:name="com.oculus.supportedDevices" android:value="quest|quest2|questpro" />
         <activity
             android:name="android.app.NativeActivity"
             android:label="@string/app_name"
