@@ -67,6 +67,14 @@ settings are kept.
 
 Taking the headset off pauses the game.
 
+**A flight stick** (a Thrustmaster T.Flight Hotas X, or another USB joystick)
+plugged into the headset's USB-C port is the controller instead: the stick
+moves the sight, the trigger and button 3 fire, button 4 is the thumb button,
+button 2 inserts a coin, **ST** opens the menu (the hat works it) and the hat
+pushed down centres. The Touch controllers are not read while it is plugged
+in. [docs/VR.md](docs/VR.md#a-flight-stick-thrustmaster-tflight-hotas-x) says
+how to change the buttons.
+
 ## Build it yourself
 
 The app is [`c_src/platform/openxr/plat_openxr.cpp`](c_src/platform/openxr/plat_openxr.cpp)

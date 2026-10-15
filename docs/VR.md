@@ -169,6 +169,52 @@ the flight stick. Press **B** to give it back to the right.
 the stick's rest position. If the sight drifts or sits off-centre, hold the
 controller comfortably and press it again.
 
+### A flight stick (Thrustmaster T.Flight Hotas X)
+
+Plug the stick in by USB, into the PC or into the Quest itself, before starting
+the game or while it runs. While it is plugged in it is the only controller the
+game reads: the Touch controllers and any game pad are ignored, so they can
+stay on the desk. The headset still tracks your head, and the keyboard still
+works. Where the stick rests when it is found is its centre.
+
+| Action | On the T.Flight Hotas X |
+|---|---|
+| Move the sight | The stick: push forward to dive (sight down), pull back to climb (sight up), left and right |
+| Fire | Trigger (button 1), button 3 |
+| Thumb button (also fires) | Button 4 |
+| Insert coin | Button 2 |
+| Menu (pauses the game) | **ST** (button 10) |
+| In the menu | The hat: up / down picks a slider, left / right moves it. On QUIT, button 2 leaves |
+| Centre the view, and take the stick as it rests now as its centre | Hat down |
+
+The button numbers are the ones printed on the stick. Any other USB joystick
+works the same way. If a button does something else, or nothing, press it once
+in the game and look in `sw_xr.log`: each button is named there the first time
+it is pressed (`[hotas] button 7 pressed`). Then set it under `[hotas]` in
+`sw_xr.ini`:
+
+```ini
+[hotas]
+fire_right=1
+thumb_right=4
+fire_left=3
+thumb_left=0
+coin=2
+menu=10
+; a button that centres, as well as the hat pushed down (0: none)
+centre=0
+centre_hat_down=1
+; the stick's axes, counted from 1 (Windows' order on the PC; on the Quest
+; 1 X, 2 Y, 3 Z, 4 RZ, 5 RX, 6 RY, 7 throttle, 8 rudder)
+axis_x=1
+axis_y=2
+; 1 swaps up and down (pushed forward to climb)
+invert_pitch=0
+deadzone=0.04
+```
+
+A button set to 0 does nothing.
+
 ### Keyboard (the PC window must have the focus)
 
 | Key | Action |
@@ -334,6 +380,9 @@ is no keyboard, so:
   folder above, beside the ROM set. `sw_xr.log` and the high scores
   (`starwars.nv`) are kept there as well.
 - Taking the headset off pauses the game.
+- **A flight stick** works plugged into the headset's USB-C port (with a USB-C
+  to USB-A adapter for the T.Flight): see
+  [A flight stick](#a-flight-stick-thrustmaster-tflight-hotas-x).
 
 ### Building the app yourself
 

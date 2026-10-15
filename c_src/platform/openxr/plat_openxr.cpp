@@ -33,7 +33,15 @@
  * B or Y centres the view and takes the handles' height now as the yoke's rest.
  * The thumbsticks move the yoke too.  F9 (or [vr] aim) steps through yoke,
  * point (the right controller alone: point it where the sight should go) and
- * stick (the thumbsticks only).  The mouse, the
+ * stick (the thumbsticks only).
+ *
+ * A flight stick on USB - a Thrustmaster T.Flight Hotas X, or any joystick
+ * that is not a game controller - is the yoke too, on the PC and plugged into
+ * the headset itself: its
+ * stick moves the sight (back to climb), its buttons are the triggers, the
+ * thumb buttons, the coin, centring and the menu, and its hat works the menu.
+ * [hotas] in sw_xr.ini numbers the buttons from 1, as printed on the stick;
+ * sw_xr.log names each button the first time it is pressed.  The mouse, the
  * keys and a game controller work as in sw_sdl while the window has the focus.
  * PageUp / PageDown change unit_metres, - and = the picture's size to the
  * eye (view_scale), F10 moves the HUD panel.
@@ -644,6 +652,13 @@ static struct {
     float hand_roll[2];                 /* how far each leans over to the right, degrees */
     float hand_pos[2][3];               /* where each is, the cockpit's axes */
 } xin;
+/* the flight stick, as the menu reads it (all zero without one) */
+static struct {
+    int   present;                      /* a flight stick is plugged in: the other controllers are not read */
+    int   menu, coin, centre;           /* held */
+    float hat_x, hat_y;                 /* the hat: right and up positive */
+} hin;
+
 static int   yoke_rest_request = 1;     /* take the handles' height now as the yoke's rest */
 static float yoke_rest;
 static struct { float pitch, roll, pos[3]; } flight_rest;      /* and the stick as it is held now */
@@ -1119,8 +1134,60 @@ static double yoke_x = 128.0, yoke_y = 128.0, key_x, key_y, input_last_ms;
 static double mouse_sens = 0.25, key_rate = 400.0;
 static int invert_pitch, mouse_b;
 static int mickey_x, mickey_y;
+/* the flight stick: its buttons numbered from 1 as printed on it (0: none),
+ * its axes from 1 as Windows counts them ([hotas] in sw_xr.ini).  In the
+ * headset the axes are Android's: 1 X, 2 Y, 3 Z, 4 RZ, 5 RX, 6 RY, 7 throttle,
+ * 8 rudder. */
+static struct {
+    int fire_r = 1, thumb_r = 4, fire_l = 3, thumb_l = 0, centre = 0, coin = 2, menu = 10;
+    int centre_hat = 1;                 /* the hat pushed down centres (outside the menu) */
+    int trace = 0;                      /* [hotas] trace=1: the stick and the yoke in the log, ten times a second */
+    int axis_x = 1, axis_y = 2, invert = 0;
+    int rest_x, rest_y;                 /* the stick at rest, raw: taken at the start and on Centre */
+    int lo_x = 0, hi_x = 0, lo_y = 0, hi_y = 0;   /* the furthest each way it has been, raw */
+    double deadzone = 0.04;
+    std::string name = "T.Flight";      /* a game controller with this in its name is taken as a flight stick */
+} hotas;
+
+static void stick_found(void);
+
 #ifndef __ANDROID__
 static SDL_GameController *pad;
+static SDL_Joystick *stick;
+
+static int stick_on(void) { return stick != nullptr; }
+static int stick_raw_axis(int n) { return stick && n > 0 ? SDL_JoystickGetAxis(stick, n - 1) : 0; }
+static int stick_button(int n) { return stick && n > 0 && SDL_JoystickGetButton(stick, n - 1); }
+static int stick_buttons(void) { return stick ? SDL_JoystickNumButtons(stick) : 0; }
+
+/* the hat: right and up +1 */
+static void stick_hat(float *x, float *y)
+{
+    *x = *y = 0.0f;
+    if (!stick || SDL_JoystickNumHats(stick) < 1) return;
+    const Uint8 h = SDL_JoystickGetHat(stick, 0);
+    *x = (h & SDL_HAT_RIGHT) ? 1.0f : (h & SDL_HAT_LEFT) ? -1.0f : 0.0f;
+    *y = (h & SDL_HAT_UP) ? 1.0f : (h & SDL_HAT_DOWN) ? -1.0f : 0.0f;
+}
+
+static int is_flight_stick(int index)
+{
+    const char *n = SDL_JoystickNameForIndex(index);
+    if (!SDL_IsGameController(index)) return 1;
+    return n && !hotas.name.empty() && (strstr(n, hotas.name.c_str()) || strstr(n, "HOTAS") || strstr(n, "Hotas"));
+}
+
+static void stick_open(int index)
+{
+    if (stick || !is_flight_stick(index)) return;
+    stick = SDL_JoystickOpen(index);
+    if (stick) {
+        SDL_JoystickUpdate();
+        stick_found();
+        logf("[hotas] %s: %d axes, %d buttons, %d hats", SDL_JoystickName(stick), SDL_JoystickNumAxes(stick),
+             SDL_JoystickNumButtons(stick), SDL_JoystickNumHats(stick));
+    }
+}
 
 static void set_capture(int on)
 {
@@ -1173,10 +1240,16 @@ static void pump_events(void)
             }
             break;
         case SDL_CONTROLLERDEVICEADDED:
-            if (!pad) pad = SDL_GameControllerOpen(e.cdevice.which);
+            if (!pad && !is_flight_stick(e.cdevice.which)) pad = SDL_GameControllerOpen(e.cdevice.which);
             break;
         case SDL_CONTROLLERDEVICEREMOVED:
             if (pad && SDL_GameControllerGetAttached(pad) == SDL_FALSE) { SDL_GameControllerClose(pad); pad = nullptr; }
+            break;
+        case SDL_JOYDEVICEADDED:
+            stick_open(e.jdevice.which);
+            break;
+        case SDL_JOYDEVICEREMOVED:
+            if (stick && SDL_JoystickGetAttached(stick) == SDL_FALSE) { SDL_JoystickClose(stick); stick = nullptr; logf("[hotas] gone"); }
             break;
         case SDL_WINDOWEVENT:
             if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) set_capture(0);
@@ -1187,7 +1260,217 @@ static void pump_events(void)
     }
 }
 
+#else
+/* In the headset the stick is Android's own input: a joystick plugged into
+ * the headset sends the activity its events, which the Touch controllers do
+ * not.  Its axes come -1 .. 1 and are kept as SDL's -32768 .. 32767; its
+ * buttons come as keys, BUTTON_1 to BUTTON_16 for a joystick like the
+ * T.Flight; its hat as HAT_X and HAT_Y, or as the d-pad's keys. */
+static JNIEnv *g_env;
+static struct {
+    int id = -1;                        /* the input device; -1: none */
+    int fresh;                          /* no axis seen yet: its rest is taken from the first */
+    int axis[8];
+    uint64_t buttons;                   /* bit n - 1: button n */
+    int nbuttons;
+    float hat_x, hat_y;                 /* HAT_X, HAT_Y: right and down +1 */
+    int dpad;                           /* the d-pad's keys: 1 up, 2 right, 4 down, 8 left */
+    double check_at;
+} ajoy;
+static std::vector<int> ajoy_not;      /* devices looked at and not taken */
+static const int32_t ajoy_axes[8] = {
+    AMOTION_EVENT_AXIS_X, AMOTION_EVENT_AXIS_Y, AMOTION_EVENT_AXIS_Z, AMOTION_EVENT_AXIS_RZ,
+    AMOTION_EVENT_AXIS_RX, AMOTION_EVENT_AXIS_RY, AMOTION_EVENT_AXIS_THROTTLE, AMOTION_EVENT_AXIS_RUDDER };
+
+static int stick_on(void) { return ajoy.id >= 0; }
+static int stick_raw_axis(int n) { return ajoy.id >= 0 && n > 0 && n <= 8 ? ajoy.axis[n - 1] : 0; }
+static int stick_button(int n) { return ajoy.id >= 0 && n > 0 && n <= 64 && (ajoy.buttons >> (n - 1) & 1); }
+static int stick_buttons(void) { return ajoy.nbuttons; }
+
+static void stick_hat(float *x, float *y)
+{
+    *x = ajoy.hat_x > 0.5f || (ajoy.dpad & 2) ? 1.0f : ajoy.hat_x < -0.5f || (ajoy.dpad & 8) ? -1.0f : 0.0f;
+    *y = ajoy.hat_y < -0.5f || (ajoy.dpad & 1) ? 1.0f : ajoy.hat_y > 0.5f || (ajoy.dpad & 4) ? -1.0f : 0.0f;
+}
+
+/* an input device as Java's InputDevice has it: its name ("" when it has
+ * gone), whether it is a joystick and whether it has a game controller's A */
+static std::string input_device(int id, int *joystick, int *gamepad)
+{
+    std::string name;
+    *joystick = *gamepad = 0;
+    JNIEnv *env = g_env;
+    if (!env) return name;
+    jclass c = env->FindClass("android/view/InputDevice");
+    if (!c) { env->ExceptionClear(); return name; }
+    jmethodID get = env->GetStaticMethodID(c, "getDevice", "(I)Landroid/view/InputDevice;");
+    jobject d = get ? env->CallStaticObjectMethod(c, get, (jint)id) : nullptr;
+    if (env->ExceptionCheck()) { env->ExceptionClear(); d = nullptr; }
+    if (d) {
+        name = "?";
+        jstring js = (jstring)env->CallObjectMethod(d, env->GetMethodID(c, "getName", "()Ljava/lang/String;"));
+        if (js && !env->ExceptionCheck()) {
+            if (const char *u = env->GetStringUTFChars(js, nullptr)) { if (*u) name = u; env->ReleaseStringUTFChars(js, u); }
+            env->DeleteLocalRef(js);
+        }
+        if (env->ExceptionCheck()) env->ExceptionClear();
+        const jint sources = env->CallIntMethod(d, env->GetMethodID(c, "getSources", "()I"));
+        if (env->ExceptionCheck()) env->ExceptionClear();
+        *joystick = (sources & AINPUT_SOURCE_JOYSTICK) == AINPUT_SOURCE_JOYSTICK;
+        jintArray keys = env->NewIntArray(1);
+        const jint a = AKEYCODE_BUTTON_A;
+        env->SetIntArrayRegion(keys, 0, 1, &a);
+        jbooleanArray has = (jbooleanArray)env->CallObjectMethod(d, env->GetMethodID(c, "hasKeys", "([I)[Z"), keys);
+        if (has && !env->ExceptionCheck()) {
+            jboolean b = 0;
+            env->GetBooleanArrayRegion(has, 0, 1, &b);
+            *gamepad = b;
+            env->DeleteLocalRef(has);
+        }
+        if (env->ExceptionCheck()) env->ExceptionClear();
+        env->DeleteLocalRef(keys);
+        env->DeleteLocalRef(d);
+    }
+    env->DeleteLocalRef(c);
+    return name;
+}
+
+/* whether a device's events are the stick's: the first joystick that is not
+ * a game controller (or is, by its name) is taken, and kept until it goes */
+static int ajoy_take(int id)
+{
+    if (id == ajoy.id) return 1;
+    if (ajoy.id >= 0) return 0;
+    for (int n : ajoy_not) if (n == id) return 0;
+    int joystick, gamepad;
+    const std::string n = input_device(id, &joystick, &gamepad);
+    const int named = !hotas.name.empty() && (strstr(n.c_str(), hotas.name.c_str()) || strstr(n.c_str(), "HOTAS") ||
+                                              strstr(n.c_str(), "Hotas"));
+    if (n.empty() || !joystick || (gamepad && !named)) {
+        ajoy_not.push_back(id);
+        if (!n.empty()) logf("[hotas] not taken as a flight stick: %s%s", n.c_str(), joystick ? " (a game controller)" : "");
+        return 0;
+    }
+    memset(ajoy.axis, 0, sizeof ajoy.axis);
+    ajoy.buttons = 0;
+    ajoy.nbuttons = 0;
+    ajoy.hat_x = ajoy.hat_y = 0.0f;
+    ajoy.dpad = 0;
+    ajoy.fresh = 1;
+    ajoy.id = id;
+    stick_found();
+    logf("[hotas] %s (input device %d)", n.c_str(), id);
+    return 1;
+}
+
+/* the stick unplugged: looked for once a second */
+static void ajoy_check(double now)
+{
+    if (ajoy.id < 0 || now < ajoy.check_at) return;
+    ajoy.check_at = now + 1000.0;
+    int joystick, gamepad;
+    if (input_device(ajoy.id, &joystick, &gamepad).empty()) {
+        ajoy.id = -1;
+        logf("[hotas] gone");
+    }
+}
+
+static int32_t app_input(struct android_app *, AInputEvent *e)
+{
+    if (!ajoy_take(AInputEvent_getDeviceId(e))) return 0;
+    if (AInputEvent_getType(e) == AINPUT_EVENT_TYPE_MOTION) {
+        for (int i = 0; i < 8; i++) {
+            const float v = std::max(-1.0f, std::min(1.0f, AMotionEvent_getAxisValue(e, ajoy_axes[i], 0)));
+            ajoy.axis[i] = (int)lrintf(v * 32767.0f);
+        }
+        ajoy.hat_x = AMotionEvent_getAxisValue(e, AMOTION_EVENT_AXIS_HAT_X, 0);
+        ajoy.hat_y = AMotionEvent_getAxisValue(e, AMOTION_EVENT_AXIS_HAT_Y, 0);
+        if (ajoy.fresh) { ajoy.fresh = 0; stick_found(); }
+        return 1;
+    }
+    if (AInputEvent_getType(e) != AINPUT_EVENT_TYPE_KEY) return 1;
+    const int action = AKeyEvent_getAction(e), k = AKeyEvent_getKeyCode(e);
+    if (action != AKEY_EVENT_ACTION_DOWN && action != AKEY_EVENT_ACTION_UP) return 1;
+    const int down = action == AKEY_EVENT_ACTION_DOWN;
+    /* a game controller's buttons too, should the system name the stick's so:
+     * after the sixteen, in the order Linux numbers them */
+    static const int pad_keys[] = { AKEYCODE_BUTTON_A, AKEYCODE_BUTTON_B, AKEYCODE_BUTTON_C, AKEYCODE_BUTTON_X,
+        AKEYCODE_BUTTON_Y, AKEYCODE_BUTTON_Z, AKEYCODE_BUTTON_L1, AKEYCODE_BUTTON_R1, AKEYCODE_BUTTON_L2,
+        AKEYCODE_BUTTON_R2, AKEYCODE_BUTTON_SELECT, AKEYCODE_BUTTON_START, AKEYCODE_BUTTON_MODE,
+        AKEYCODE_BUTTON_THUMBL, AKEYCODE_BUTTON_THUMBR };
+    int b = 0, d = 0;
+    if (k >= AKEYCODE_BUTTON_1 && k <= AKEYCODE_BUTTON_16) b = k - AKEYCODE_BUTTON_1 + 1;
+    for (int i = 0; i < (int)(sizeof pad_keys / sizeof *pad_keys); i++) if (k == pad_keys[i]) b = 17 + i;
+    if (k == AKEYCODE_DPAD_UP) d = 1;
+    if (k == AKEYCODE_DPAD_RIGHT) d = 2;
+    if (k == AKEYCODE_DPAD_DOWN) d = 4;
+    if (k == AKEYCODE_DPAD_LEFT) d = 8;
+    if (b) {
+        if (down) ajoy.buttons |= 1ull << (b - 1); else ajoy.buttons &= ~(1ull << (b - 1));
+        ajoy.nbuttons = std::max(ajoy.nbuttons, b);
+    } else if (d) {
+        if (down) ajoy.dpad |= d; else ajoy.dpad &= ~d;
+    } else if (down) logf("[hotas] key %d: not one of the stick's buttons", k);
+    return 1;
+}
 #endif
+
+/* the stick at rest, as it is now; its ends not yet known */
+static void stick_found(void)
+{
+    hotas.rest_x = stick_raw_axis(hotas.axis_x);
+    hotas.rest_y = stick_raw_axis(hotas.axis_y);
+    hotas.lo_x = hotas.hi_x = hotas.rest_x;
+    hotas.lo_y = hotas.hi_y = hotas.rest_y;
+}
+
+/* an axis, -1 .. 1 from where it rests, with its dead zone.  Each side is
+ * scaled to the furthest the stick has gone that way: a stick whose centre is
+ * not the middle of its range (a T.Flight's left and right can be) still
+ * reaches both ends.  Until it has been pushed all the way, a side is taken to
+ * be 60% of the shorter one the range leaves. */
+static double stick_axis(int n, int rest, int &lo, int &hi)
+{
+    if (!stick_on() || n < 1) return 0.0;
+    const int raw = stick_raw_axis(n);
+    lo = std::min(lo, raw);
+    hi = std::max(hi, raw);
+    const double guess = 0.6 * std::min(32767 - rest, 32768 + rest);
+    const double up = std::max((double)(hi - rest), guess), down = std::max((double)(rest - lo), guess);
+    double v = raw >= rest ? (raw - rest) / std::max(1.0, up) : (raw - rest) / std::max(1.0, down);
+    v = std::max(-1.0, std::min(1.0, v));
+    if (fabs(v) < hotas.deadzone) return 0.0;
+    return (v - (v > 0 ? hotas.deadzone : -hotas.deadzone)) / (1.0 - hotas.deadzone);
+}
+
+static void hotas_read(void)
+{
+    memset(&hin, 0, sizeof hin);
+#ifdef __ANDROID__
+    ajoy_check(plat_now_ms());
+#endif
+    if (!stick_on()) return;
+    hin.present = 1;
+    hin.menu = stick_button(hotas.menu);
+    hin.coin = stick_button(hotas.coin);
+    stick_hat(&hin.hat_x, &hin.hat_y);
+    hin.centre = stick_button(hotas.centre) || (hotas.centre_hat && !slider_open && hin.hat_y < 0);
+    static int centre_was;
+    if (hin.centre && !centre_was) {            /* Centre: the stick as it is held now is its rest */
+        hotas.rest_x = stick_raw_axis(hotas.axis_x);
+        hotas.rest_y = stick_raw_axis(hotas.axis_y);
+        logf("[hotas] centre: the stick at rest is x %d, y %d", hotas.rest_x, hotas.rest_y);
+    }
+    centre_was = hin.centre;
+    /* each button named in the log the first time it is pressed, for [hotas] */
+    static uint64_t seen;
+    for (int b = 0; b < stick_buttons() && b < 64; b++)
+        if (stick_button(b + 1) && !(seen >> b & 1)) {
+            seen |= 1ull << b;
+            logf("[hotas] button %d pressed", b + 1);
+        }
+}
+
 /* What the menu's sliders stand for. */
 static void menu_apply(void)
 {
@@ -1209,7 +1492,10 @@ static void menu_update(double now)
     static double last;
     const double dt = last > 0.0 ? std::min(100.0, std::max(0.0, now - last)) : 0.0;
     last = now;
-    if (xin.menu && !menu_was) {
+    hotas_read();
+    /* with a flight stick plugged in, only the stick works the menu */
+    const int menu_now = hin.present ? hin.menu : xin.menu;
+    if (menu_now && !menu_was) {
         slider_open = !slider_open;
         if (slider_open) menu_row = 0;
         else {
@@ -1217,14 +1503,15 @@ static void menu_update(double now)
             resume_at = now + 250.0;
         }
     }
-    menu_was = xin.menu;
+    menu_was = menu_now;
     if (slider_open) {
         const float dz = 0.12f;
-        const float sx = fabsf(xin.stick_x) < dz ? 0.0f : xin.stick_x;
-        const int step = xin.stick_y > 0.6f ? -1 : xin.stick_y < -0.6f ? 1 : 0;      /* up or down is one row a push */
+        const float mx = hin.present ? hin.hat_x : xin.stick_x, my = hin.present ? hin.hat_y : xin.stick_y;
+        const float sx = fabsf(mx) < dz ? 0.0f : std::max(-1.0f, std::min(1.0f, mx));
+        const int step = my > 0.6f ? -1 : my < -0.6f ? 1 : 0;      /* up or down is one row a push */
         if (step && !stepped) menu_row = (menu_row + step + MENU_N) % MENU_N;
         stepped = step;
-        if (menu_row == MENU_QUIT) { if (xin.coin) g_quit = 1; }             /* A or X, on the last row: leave */
+        if (menu_row == MENU_QUIT) { if (hin.present ? hin.coin : xin.coin) g_quit = 1; }   /* A or X, on the last row: leave */
         else if (!step) menu_at[menu_row] = std::max(-1.0f, std::min(1.0f, menu_at[menu_row] + sx * (float)dt / 1000.0f));
     }
     menu_apply();
@@ -1295,7 +1582,7 @@ void plat_input_poll(plat_inputs *in)
     }
     double x = yoke_x + key_x, y = yoke_y + key_y;
 
-    if (pad) {
+    if (pad && !hin.present) {                  /* a game controller, unless a flight stick is plugged in */
         const int dz = 4000;
         int ax = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
         int ay = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
@@ -1315,9 +1602,23 @@ void plat_input_poll(plat_inputs *in)
 #else
     double x = 128.0, y = 128.0;
 #endif
+    /* the flight stick: pulled back is the sight up, as a pilot climbs */
+    if (stick_on()) {
+        if (!slider_open) {
+            x += stick_axis(hotas.axis_x, hotas.rest_x, hotas.lo_x, hotas.hi_x) * 127.0;
+            y += stick_axis(hotas.axis_y, hotas.rest_y, hotas.lo_y, hotas.hi_y) * 127.0 * (hotas.invert ? -1.0 : 1.0);
+        }
+        if (stick_button(hotas.fire_r)) in->fire_r = 1;
+        if (stick_button(hotas.fire_l)) in->fire_l = 1;
+        if (stick_button(hotas.thumb_r)) in->thumb_r = 1;
+        if (stick_button(hotas.thumb_l)) in->thumb_l = 1;
+        if (hin.coin && !slider_open) in->coin_l = 1;
+    }
+
     /* the Touch controllers: up is the sight up (the pot's high end), the
-     * other way from the mouse and the arrow keys, which are a yoke pushed */
-    {
+     * other way from the mouse and the arrow keys, which are a yoke pushed.
+     * Not read while a flight stick is plugged in: the stick is the yoke. */
+    if (!hin.present) {
         const float dz = 0.12f;
         float sx = fabsf(xin.stick_x) < dz ? 0.0f : xin.stick_x, sy = fabsf(xin.stick_y) < dz ? 0.0f : xin.stick_y;
 
@@ -1370,6 +1671,7 @@ void plat_input_poll(plat_inputs *in)
         if (xin.coin) in->coin_l = 1;
         if (xin.centre) centre_request = yoke_rest_request = 1;
     }
+    if (hin.centre) centre_request = yoke_rest_request = 1;
 
     /* A coin closes its switch for a moment as it falls past, and the program
      * (S_DETCT) takes no coin from a switch that stays closed: about a quarter
@@ -1393,6 +1695,14 @@ void plat_input_poll(plat_inputs *in)
     in->yaw = (uint8_t)x;
     in->pitch = (uint8_t)y;
     in->quit = (uint8_t)g_quit;
+    static double trace_at;
+    if (stick_on() && hotas.trace && now - trace_at >= 100.0) {
+        trace_at = now;
+        logf("[hotas] %.1f s  stick x %6d y %6d (rest %d %d, range x %d..%d y %d..%d)  yoke yaw %3d pitch %3d%s%s",
+             now / 1000.0, stick_raw_axis(hotas.axis_x), stick_raw_axis(hotas.axis_y), hotas.rest_x, hotas.rest_y,
+             hotas.lo_x, hotas.hi_x, hotas.lo_y, hotas.hi_y, in->yaw, in->pitch,
+             hin.centre ? "  CENTRE" : "", slider_open ? "  menu" : "");
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1555,6 +1865,20 @@ int plat_nvram_write(const void *buf, unsigned len)
 
 static void settings_load(void)
 {
+    hotas.fire_r = ini_int("hotas", "fire_right", hotas.fire_r);
+    hotas.thumb_r = ini_int("hotas", "thumb_right", hotas.thumb_r);
+    hotas.fire_l = ini_int("hotas", "fire_left", hotas.fire_l);
+    hotas.thumb_l = ini_int("hotas", "thumb_left", hotas.thumb_l);
+    hotas.centre = ini_int("hotas", "centre", hotas.centre);
+    hotas.centre_hat = ini_int("hotas", "centre_hat_down", hotas.centre_hat);
+    hotas.trace = ini_int("hotas", "trace", hotas.trace) || getenv("SW_HOTAS_TRACE") != nullptr;
+    hotas.coin = ini_int("hotas", "coin", hotas.coin);
+    hotas.menu = ini_int("hotas", "menu", hotas.menu);
+    hotas.axis_x = ini_int("hotas", "axis_x", hotas.axis_x);
+    hotas.axis_y = ini_int("hotas", "axis_y", hotas.axis_y);
+    hotas.invert = ini_int("hotas", "invert_pitch", hotas.invert);
+    hotas.deadzone = ini_dbl("hotas", "deadzone", hotas.deadzone);
+    if (const char *n = ini_get("hotas", "name")) hotas.name = n;
     dsw0 = (uint8_t)ini_int("dips", "dsw0", 0x84);
     dsw1 = (uint8_t)ini_int("dips", "dsw1", 0x02);
     brightness = (float)ini_dbl("vector", "brightness", 1.6);
@@ -1618,6 +1942,8 @@ void android_main(struct android_app *app)
     app->onAppCmd = app_cmd;
     JNIEnv *env = nullptr;
     app->activity->vm->AttachCurrentThread(&env, nullptr);
+    g_env = env;
+    app->onInputEvent = app_input;              /* a flight stick plugged into the headset */
 
     const char *dir = app->activity->externalDataPath ? app->activity->externalDataPath : app->activity->internalDataPath;
     exe_dir = std::string(dir) + "/";
@@ -1735,8 +2061,10 @@ int main(int argc, char **argv)
         logf("GL_VERSION: %s", (const char *)glGetString(GL_VERSION));
         if (gl_init()) return 1;
         set_capture(ini_int("input", "mouse_capture", flat ? 1 : 0));
-        for (int i = 0; i < SDL_NumJoysticks() && !pad; i++)
-            if (SDL_IsGameController(i)) pad = SDL_GameControllerOpen(i);
+        for (int i = 0; i < SDL_NumJoysticks(); i++) {
+            if (is_flight_stick(i)) stick_open(i);
+            else if (!pad) pad = SDL_GameControllerOpen(i);
+        }
         if (!flat && xr_init()) {
             const char *msg = "No headset was found through OpenXR.\n\nStart Quest Link, Air Link or Virtual Desktop "
                               "first, with the headset on; sw_xr.log says which runtimes were tried and what failed.\n\n"
